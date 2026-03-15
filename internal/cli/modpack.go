@@ -53,7 +53,6 @@ func runModpackSet(cmd *cobra.Command, args []string) error {
 	if err := st.SaveServer(s); err != nil {
 		return err
 	}
-	// If server has a container, recreate it so env (MODRINTH_MODPACK) is applied
 	if s.ContainerID != "" {
 		ctx := context.Background()
 		d, err := getDockerClient(ctx)

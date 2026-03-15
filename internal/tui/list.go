@@ -7,7 +7,6 @@ import (
 	"github.com/minectl/minectl/internal/domain"
 )
 
-// RenderListTable renders a simple table of servers (non-interactive)
 func RenderListTable(servers []domain.Server, all bool) string {
 	if len(servers) == 0 {
 		return DimStyle.Render("No servers found.")

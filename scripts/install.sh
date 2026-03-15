@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Install minectl — Minecraft server manager (Docker-based)
 set -e
 
 REPO="${MINECTL_REPO:-https://github.com/Geordie1071-spec/minectl}"
@@ -11,7 +10,6 @@ BINARY="minectl"
 echo "minectl installer"
 echo "================="
 
-# Detect OS and arch
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 case "$ARCH" in
@@ -25,7 +23,6 @@ case "$OS" in
   *)      echo "Unsupported OS: $OS"; exit 1 ;;
 esac
 
-# Resolve version: use MINECTL_VERSION, or latest release from GitHub, or default
 VERSION="${MINECTL_VERSION:-}"
 if [ -z "$VERSION" ] && command -v curl >/dev/null 2>&1; then
   REPO_PATH="${REPO#https://github.com/}"

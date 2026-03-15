@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// ProgressModel is a simple spinner + message for long operations
 type ProgressModel struct {
 	Spinner  spinner.Model
 	Message  string
@@ -16,10 +15,8 @@ type ProgressModel struct {
 	QuitChan chan struct{}
 }
 
-// ProgressMsg updates the status message
 type ProgressMsg string
 
-// ProgressDone signals the progress view to exit
 type ProgressDone struct{}
 
 func NewProgressModel(message string) ProgressModel {
@@ -59,8 +56,6 @@ func (m ProgressModel) View() string {
 	return fmt.Sprintf("  %s %s  (%s)\n", m.Spinner.View(), m.Message, elapsed)
 }
 
-// RunProgress runs a spinner TUI with status updates while work runs. The work function receives
-// an update callback to change the displayed message. Use for long-running operations (e.g. create server).
 func RunProgress(initialMsg string, work func(update func(string)) error) error {
 	m := NewProgressModel(initialMsg)
 	p := tea.NewProgram(m)

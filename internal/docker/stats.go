@@ -8,7 +8,6 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
-// ContainerStats holds CPU/memory stats for a container
 type ContainerStats struct {
 	CPUPercent    float64
 	MemoryUsage   uint64
@@ -17,7 +16,6 @@ type ContainerStats struct {
 	PIDs          uint64
 }
 
-// GetStats returns one-shot stats for the container
 func (c *Client) GetStats(ctx context.Context, containerID string) (*ContainerStats, error) {
 	rdr, err := c.cli.ContainerStats(ctx, containerID, false)
 	if err != nil {
@@ -53,7 +51,6 @@ func (c *Client) GetStats(ctx context.Context, containerID string) (*ContainerSt
 	}, nil
 }
 
-// StreamStats decodes the container stats stream and calls fn for each update. Cancel ctx to stop.
 func (c *Client) StreamStats(ctx context.Context, containerID string, fn func(*ContainerStats)) error {
 	rdr, err := c.cli.ContainerStats(ctx, containerID, true)
 	if err != nil {

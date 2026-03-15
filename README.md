@@ -1,5 +1,7 @@
 # minectl
 
+![minectl](assets/logo.png)
+
 A CLI to create and manage Minecraft servers on any Linux (or Windows with Docker) using Docker. No cloud, no accounts — just your machine and [itzg/minecraft-server](https://github.com/itzg/docker-minecraft-server).
 
 ## Quick start

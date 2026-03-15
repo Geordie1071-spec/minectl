@@ -7,7 +7,6 @@ import (
 	"github.com/minectl/minectl/internal/domain"
 )
 
-// BuildEnvVars builds environment variables for itzg/minecraft-server from a server record
 func BuildEnvVars(s *domain.Server) []string {
 	env := []string{
 		"EULA=TRUE",

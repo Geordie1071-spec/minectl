@@ -11,7 +11,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-// GetLogs returns the last N lines of container logs (stdout+stderr combined)
 func (c *Client) GetLogs(ctx context.Context, containerID string, tail int) ([]string, error) {
 	tailStr := "50"
 	if tail > 0 && tail <= 10000 {
@@ -37,13 +36,11 @@ func (c *Client) GetLogs(ctx context.Context, containerID string, tail int) ([]s
 	sc := bufio.NewScanner(strings.NewReader(out.String()))
 	for sc.Scan() {
 		line := sc.Text()
-		// Docker prefixes with 8-byte header; stdcopy strips it, so we get plain lines
 		lines = append(lines, line)
 	}
 	return lines, sc.Err()
 }
 
-// StreamLogs streams container logs; each line is sent to the channel. Cancel ctx to stop.
 func (c *Client) StreamLogs(ctx context.Context, containerID string, follow bool, outCh chan<- string) error {
 	rdr, err := c.cli.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
 		ShowStdout: true,

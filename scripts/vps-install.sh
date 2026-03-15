@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# One-command install for minectl on a VPS (Ubuntu/Debian).
-# Installs Docker if needed, then minectl. Usage: curl -sSL <url> | bash
-# Optional: MINECTL_VERSION=v0.1.0 to pin version; MINECTL_SKIP_DOCKER=1 to skip Docker install.
 set -e
 
 REPO="${MINECTL_REPO:-https://github.com/Geordie1071-spec/minectl}"
@@ -11,7 +8,6 @@ BINARY="minectl"
 echo "minectl — VPS install"
 echo "====================="
 
-# Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 case "$ARCH" in
@@ -21,7 +17,6 @@ case "$ARCH" in
 esac
 [ "$OS" = "linux" ] || { echo "This script is for Linux VPS."; exit 1; }
 
-# 1. Install Docker if missing (Debian/Ubuntu)
 if [ -z "${MINECTL_SKIP_DOCKER}" ] && ! command -v docker &>/dev/null; then
   if command -v apt-get &>/dev/null; then
     echo "Docker not found. Installing Docker..."
@@ -42,7 +37,6 @@ else
   echo "Docker: $(command -v docker || echo 'not found')"
 fi
 
-# 2. Resolve version (latest release or pinned)
 VERSION="${MINECTL_VERSION:-}"
 if [ -z "$VERSION" ] && command -v curl &>/dev/null; then
   REPO_PATH="${REPO#https://github.com/}"
@@ -50,10 +44,8 @@ if [ -z "$VERSION" ] && command -v curl &>/dev/null; then
   REPO_PATH="${REPO_PATH%.git}"
   [ -n "$REPO_PATH" ] && VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') || true
 fi
-# Fallback: use a known-good release if API failed (e.g. rate limit, no network)
 [ -z "$VERSION" ] && VERSION="v0.1.4"
 
-# 3. Download and install minectl
 INSTALLED=
 DOWNLOAD_URL="${REPO}/releases/download/${VERSION}/minectl_${VERSION#v}_${OS}_${ARCH}.tar.gz"
 echo "Downloading minectl ${VERSION} ($OS/$ARCH)..."
@@ -90,7 +82,6 @@ if [ -z "${INSTALLED}" ]; then
   fi
 fi
 
-# 4. Prepare data directory (optional; minectl can create with correct perms if we run as same user)
 DATA_USER="${SUDO_USER:-$(whoami)}"
 if [ -d /opt/minectl ] 2>/dev/null; then
   sudo chown -R "${DATA_USER}:${DATA_USER}" /opt/minectl 2>/dev/null || true

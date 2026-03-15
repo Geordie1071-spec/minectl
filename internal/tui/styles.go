@@ -4,7 +4,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Brand and component colours (Lipgloss)
 var (
 	ColorGreen  = lipgloss.Color("#5DB85D")
 	ColorIron   = lipgloss.Color("#8A9BAD")
@@ -15,7 +14,6 @@ var (
 	ColorWarn   = lipgloss.Color("#E0A030")
 )
 
-// Component styles
 var (
 	TitleStyle = lipgloss.NewStyle().
 			Foreground(ColorGreen).

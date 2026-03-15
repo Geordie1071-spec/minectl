@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ColorLogLine returns a styled log line by level (INFO, WARN, ERROR, etc.)
 func ColorLogLine(line string) string {
 	upper := strings.ToUpper(line)
 	if strings.Contains(upper, "[ERROR]") || strings.Contains(upper, "FATAL") {
@@ -21,7 +20,6 @@ func ColorLogLine(line string) string {
 	return line
 }
 
-// FilterLogLines returns lines that contain the filter string (empty = all)
 func FilterLogLines(lines []string, filter string) []string {
 	if filter == "" {
 		return lines

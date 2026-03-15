@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ConsoleModel is the interactive server console (log view + command input)
 type ConsoleModel struct {
 	Viewport   viewport.Model
 	Input      textinput.Model
@@ -21,7 +20,7 @@ type ConsoleModel struct {
 	LogLines   []string
 	Ready      bool
 	Title      string
-	InputFocused bool // true = typing in input; false = scrolling viewport
+	InputFocused bool
 }
 
 type logLineMsg string
@@ -71,7 +70,6 @@ func (m ConsoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key == "ctrl+c" {
 			return m, tea.Quit
 		}
-		// Tab: switch focus between input and viewport
 		if key == "tab" {
 			m.InputFocused = !m.InputFocused
 			if m.InputFocused {
@@ -81,7 +79,6 @@ func (m ConsoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.InputFocused {
-			// All keys go to input only
 			switch key {
 			case "enter":
 				cmd := strings.TrimSpace(m.Input.Value())
@@ -120,7 +117,6 @@ func (m ConsoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Input, tiCmd = m.Input.Update(msg)
 			return m, tiCmd
 		}
-		// Viewport focused: only viewport gets keys (scroll)
 		var vpCmd tea.Cmd
 		m.Viewport, vpCmd = m.Viewport.Update(msg)
 		return m, vpCmd
@@ -131,7 +127,6 @@ func (m ConsoleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.waitForLogLine
 	}
 
-	// Non-key messages: only update focused component
 	if m.InputFocused {
 		var tiCmd tea.Cmd
 		m.Input, tiCmd = m.Input.Update(msg)
@@ -155,7 +150,6 @@ func (m ConsoleModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, title, logArea, inputArea)
 }
 
-// RunConsole runs the console TUI; ctx can be used to cancel (e.g. when logs stop)
 func RunConsole(ctx context.Context, title string, logCh <-chan string, sendCmd func(string)) error {
 	p := tea.NewProgram(NewConsoleModel(title, logCh, sendCmd))
 	_, err := p.Run()

@@ -11,7 +11,6 @@ import (
 
 const baseURL = "https://api.modrinth.com/v2"
 
-// ModResult is a search result for a mod
 type ModResult struct {
 	Slug        string   `json:"slug"`
 	ProjectID   string   `json:"project_id"`
@@ -20,7 +19,6 @@ type ModResult struct {
 	Versions    []string `json:"versions"`
 }
 
-// ModVersion is a specific version of a mod
 type ModVersion struct {
 	ID          string   `json:"id"`
 	VersionNumber string `json:"version_number"`
@@ -33,28 +31,24 @@ type ModVersion struct {
 	} `json:"files"`
 }
 
-// ModpackVersion is a version of a modpack (project type modpack) from /project/{id}/version
 type ModpackVersion struct {
 	ID             string   `json:"id"`
 	VersionNumber  string   `json:"version_number"`
 	GameVersions   []string `json:"game_versions"`
 	Loaders        []string `json:"loaders"`
-	VersionType    string   `json:"version_type"` // e.g. "release"
+	VersionType    string   `json:"version_type"`
 	Featured       bool     `json:"featured"`
 	DatePublished  string   `json:"date_published"`
 }
 
-// Client for Modrinth API (no auth required for read)
 type Client struct {
 	http *http.Client
 }
 
-// NewClient returns a Modrinth API client
 func NewClient() *Client {
 	return &Client{http: &http.Client{}}
 }
 
-// SearchMods searches for mods by query. gameVersion and loader filter results (Modrinth facets).
 func (c *Client) SearchMods(query, gameVersion, loader string) ([]ModResult, error) {
 	u := baseURL + "/search?query=" + url.QueryEscape(query) + "&limit=20"
 	var facets [][]string
@@ -87,7 +81,6 @@ func (c *Client) SearchMods(query, gameVersion, loader string) ([]ModResult, err
 	return result.Hits, nil
 }
 
-// GetCompatibleVersions returns versions of a mod for the given game version and loader
 func (c *Client) GetCompatibleVersions(modID, gameVersion, loader string) ([]ModVersion, error) {
 	u := baseURL + "/project/" + url.PathEscape(modID) + "/version"
 	u += "?game_versions=" + url.QueryEscape(gameVersion)
@@ -110,7 +103,6 @@ func (c *Client) GetCompatibleVersions(modID, gameVersion, loader string) ([]Mod
 	return versions, nil
 }
 
-// GetModpackVersions returns versions for a modpack (project slug or id). Optional loader filter (e.g. "forge", "fabric").
 func (c *Client) GetModpackVersions(packID, loader string) ([]ModpackVersion, error) {
 	if packID == "" {
 		return nil, fmt.Errorf("modpack id required")
@@ -135,14 +127,11 @@ func (c *Client) GetModpackVersions(packID, loader string) ([]ModpackVersion, er
 	return versions, nil
 }
 
-// ModpackVersionInfo holds recommended MC version and modpack version ID from the modpack's latest release.
 type ModpackVersionInfo struct {
-	MCVersion       string // e.g. "1.12.2"
-	ModpackVersionID string // version id for MODRINTH_MODPACK URL
+	MCVersion        string
+	ModpackVersionID string
 }
 
-// GetModpackRecommendedVersion returns the recommended Minecraft version and modpack version ID for a slug and loader.
-// Uses the first (newest) modpack version from the API; loader is e.g. "forge" or "fabric".
 func (c *Client) GetModpackRecommendedVersion(packID, loader string) (ModpackVersionInfo, error) {
 	var out ModpackVersionInfo
 	versions, err := c.GetModpackVersions(packID, loader)
@@ -161,7 +150,6 @@ func (c *Client) GetModpackRecommendedVersion(packID, loader string) (ModpackVer
 	return out, nil
 }
 
-// ModpackSupportsVersion returns true if the modpack has any version supporting the given MC version and loader.
 func (c *Client) ModpackSupportsVersion(packID, mcVersion, loader string) (bool, error) {
 	versions, err := c.GetModpackVersions(packID, loader)
 	if err != nil {
@@ -177,19 +165,16 @@ func (c *Client) ModpackSupportsVersion(packID, mcVersion, loader string) (bool,
 	return false, nil
 }
 
-// ResolveModpackURL returns the Modrinth modpack URL for itzg image (project ID + version)
 func (c *Client) ResolveModpackURL(packID, version string) (string, error) {
 	if packID == "" {
 		return "", fmt.Errorf("modpack id required")
 	}
-	// itzg image expects MODRINTH_MODPACK as project slug or project/version URL
 	if version != "" {
 		return "https://api.modrinth.com/v2/project/" + packID + "/version/" + version, nil
 	}
 	return "https://api.modrinth.com/v2/project/" + packID, nil
 }
 
-// GetVersionDownloadURL returns the primary file download URL for a version
 func (v *ModVersion) GetVersionDownloadURL() string {
 	for _, f := range v.Files {
 		if f.Primary {
@@ -202,7 +187,6 @@ func (v *ModVersion) GetVersionDownloadURL() string {
 	return ""
 }
 
-// NormalizeLoader maps server type to Modrinth loader slug
 func NormalizeLoader(mcType string) string {
 	switch strings.ToLower(mcType) {
 	case "fabric":

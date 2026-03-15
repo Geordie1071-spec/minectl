@@ -8,7 +8,6 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-// ContainerStatsView holds stats for display
 type ContainerStatsView struct {
 	CPUPercent    float64
 	MemoryUsage   uint64
@@ -16,7 +15,6 @@ type ContainerStatsView struct {
 	MemoryPercent float64
 }
 
-// RenderStats renders a one-shot stats panel
 func RenderStats(name, serverType, version, status string, uptime string, stats *ContainerStatsView) string {
 	var b strings.Builder
 	b.WriteString(TitleStyle.Render(fmt.Sprintf("%s (%s %s)", name, serverType, version)))
@@ -36,7 +34,6 @@ func RenderStats(name, serverType, version, status string, uptime string, stats 
 	return PanelStyle.Render(b.String())
 }
 
-// RenderBar renders a progress bar (used in stats)
 func RenderBar(used, total float64, width int) string {
 	if total <= 0 {
 		return strings.Repeat("░", width)

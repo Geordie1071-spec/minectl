@@ -9,7 +9,6 @@ import (
 	"github.com/minectl/minectl/internal/domain"
 )
 
-// Store handles reading/writing minectl state (servers.json, config.json)
 type Store struct {
 	mu sync.Mutex
 }
@@ -19,17 +18,14 @@ type serversFile struct {
 	Servers []domain.Server `json:"servers"`
 }
 
-// New returns a new Store
 func New() *Store {
 	return &Store{}
 }
 
-// ensureConfigDir creates ~/.minectl if it doesn't exist
 func (s *Store) ensureConfigDir() error {
 	return os.MkdirAll(config.ConfigDir(), 0755)
 }
 
-// ListServers returns all servers
 func (s *Store) ListServers() ([]domain.Server, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -49,7 +45,6 @@ func (s *Store) ListServers() ([]domain.Server, error) {
 	return f.Servers, nil
 }
 
-// GetServer returns a server by name
 func (s *Store) GetServer(name string) (*domain.Server, error) {
 	servers, err := s.ListServers()
 	if err != nil {
@@ -63,7 +58,6 @@ func (s *Store) GetServer(name string) (*domain.Server, error) {
 	return nil, nil
 }
 
-// GetServerByID returns a server by ID
 func (s *Store) GetServerByID(id string) (*domain.Server, error) {
 	servers, err := s.ListServers()
 	if err != nil {
@@ -77,7 +71,6 @@ func (s *Store) GetServerByID(id string) (*domain.Server, error) {
 	return nil, nil
 }
 
-// SaveServer upserts a server (add or update by name)
 func (s *Store) SaveServer(server *domain.Server) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -133,7 +126,6 @@ func (s *Store) writeServersUnlocked(servers []domain.Server) error {
 	return os.WriteFile(config.ServersPath(), data, 0644)
 }
 
-// DeleteServer removes a server by name
 func (s *Store) DeleteServer(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -152,7 +144,6 @@ func (s *Store) DeleteServer(name string) error {
 	return s.writeServersUnlocked(out)
 }
 
-// GetConfig returns global config, creating default if missing
 func (s *Store) GetConfig() (*domain.Config, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -194,7 +185,6 @@ func (s *Store) defaultConfig() *domain.Config {
 	}
 }
 
-// SaveConfig writes global config
 func (s *Store) SaveConfig(cfg *domain.Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -209,20 +199,17 @@ func (s *Store) SaveConfig(cfg *domain.Config) error {
 	return os.WriteFile(config.ConfigFilePath(), data, 0644)
 }
 
-// InitConfigDir creates config dir and default files if missing
 func InitConfigDir() error {
 	dir := config.ConfigDir()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	// Touch servers.json if not exists
 	p := config.ServersPath()
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		f := serversFile{Version: 1, Servers: []domain.Server{}}
 		data, _ := json.MarshalIndent(f, "", "  ")
 		return os.WriteFile(p, data, 0644)
 	}
-	// Ensure config.json exists
 	cfgPath := config.ConfigFilePath()
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		cfg := domain.Config{

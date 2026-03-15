@@ -11,8 +11,6 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
-// ExecCommand runs a command inside the container and returns combined stdout+stderr.
-// For Minecraft servers we use rcon-cli which is included in itzg/minecraft-server.
 func (c *Client) ExecCommand(ctx context.Context, containerID string, cmd []string) (stdout string, err error) {
 	cfg := types.ExecConfig{
 		AttachStdin:  false,
@@ -39,12 +37,10 @@ func (c *Client) ExecCommand(ctx context.Context, containerID string, cmd []stri
 	return strings.TrimSpace(out.String()), nil
 }
 
-// ExecRcon runs a Minecraft console command via rcon-cli (itzg image)
 func (c *Client) ExecRcon(ctx context.Context, containerID string, command string) (string, error) {
 	return c.ExecCommand(ctx, containerID, []string{"rcon-cli", command})
 }
 
-// ExecRconStream runs rcon and streams output line-by-line to the given channel
 func (c *Client) ExecRconStream(ctx context.Context, containerID string, command string, outCh chan<- string) error {
 	cfg := types.ExecConfig{
 		AttachStdin:  false,
@@ -75,7 +71,6 @@ func (c *Client) ExecRconStream(ctx context.Context, containerID string, command
 	return scanner.Err()
 }
 
-// ExecInspect returns exit code of an exec
 func (c *Client) ExecInspect(ctx context.Context, execID string) (int, error) {
 	inspect, err := c.cli.ContainerExecInspect(ctx, execID)
 	if err != nil {
@@ -84,7 +79,6 @@ func (c *Client) ExecInspect(ctx context.Context, execID string) (int, error) {
 	return inspect.ExitCode, nil
 }
 
-// DecodeDockerStream reads the Docker multiplexed stream (stdout/stderr) and writes decoded lines
 func DecodeDockerStream(r io.Reader, fn func(line string, stderr bool)) error {
 	dec := json.NewDecoder(r)
 	for {

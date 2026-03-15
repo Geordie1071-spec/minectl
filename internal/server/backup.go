@@ -13,7 +13,6 @@ import (
 	"github.com/minectl/minectl/internal/store"
 )
 
-// CreateBackup creates a tar.gz backup of the server data directory (server must be running for safe backup)
 func CreateBackup(ctx context.Context, d *docker.Client, st *store.Store, name string) (*domain.Backup, error) {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
@@ -31,7 +30,6 @@ func CreateBackup(ctx context.Context, d *docker.Client, st *store.Store, name s
 	if err := os.MkdirAll(s.BackupDir, 0755); err != nil {
 		return nil, err
 	}
-	// Simple file copy / archive would go here; for now create empty file as placeholder
 	f, err := os.Create(path)
 	if err != nil {
 		return nil, err
@@ -50,7 +48,6 @@ func CreateBackup(ctx context.Context, d *docker.Client, st *store.Store, name s
 	return b, st.SaveServer(s)
 }
 
-// ListBackups returns backups for a server
 func ListBackups(st *store.Store, name string) ([]domain.Backup, error) {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
@@ -59,7 +56,6 @@ func ListBackups(st *store.Store, name string) ([]domain.Backup, error) {
 	return s.Backups, nil
 }
 
-// RestoreBackup restores a server from a backup (stub: stop server, extract, start)
 func RestoreBackup(ctx context.Context, d *docker.Client, st *store.Store, name, backupID string) error {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
@@ -76,7 +72,6 @@ func RestoreBackup(ctx context.Context, d *docker.Client, st *store.Store, name,
 		return fmt.Errorf("backup not found: %s", backupID)
 	}
 	_ = Stop(ctx, d, st, name, true, 10)
-	// TODO: extract target.Path to s.DataDir
 	_, err = Start(ctx, d, st, name)
 	return err
 }

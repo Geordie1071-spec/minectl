@@ -19,14 +19,12 @@ var (
 	quiet     bool
 )
 
-// rootCmd is the root command
 var rootCmd = &cobra.Command{
 	Use:   "minectl",
 	Short: "Manage Minecraft servers on any Linux VPS using Docker",
 	Long:  `minectl creates and manages Minecraft servers (Paper, Fabric, Forge, etc.) via Docker. No cloud, no accounts — just your server.`,
 }
 
-// Execute runs the root command
 func Execute() error {
 	return rootCmd.Execute()
 }
@@ -54,7 +52,6 @@ func initConfig() {
 	}
 }
 
-// getDockerClient returns a Docker client and ensures Docker is running
 func getDockerClient(ctx context.Context) (*docker.Client, error) {
 	cli, err := docker.New()
 	if err != nil {
@@ -67,7 +64,6 @@ func getDockerClient(ctx context.Context) (*docker.Client, error) {
 	return cli, nil
 }
 
-// getStore returns the state store
 func getStore() *store.Store {
 	return store.New()
 }

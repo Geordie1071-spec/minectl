@@ -11,7 +11,6 @@ import (
 	"github.com/minectl/minectl/internal/store"
 )
 
-// Start starts a stopped server
 func Start(ctx context.Context, d *docker.Client, st *store.Store, name string) (*domain.Server, error) {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
@@ -31,7 +30,6 @@ func Start(ctx context.Context, d *docker.Client, st *store.Store, name string) 
 	return s, st.SaveServer(s)
 }
 
-// Stop gracefully stops a server (rcon save-all, stop, then docker stop)
 func Stop(ctx context.Context, d *docker.Client, st *store.Store, name string, force bool, timeoutSec int) error {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
@@ -65,7 +63,6 @@ func Stop(ctx context.Context, d *docker.Client, st *store.Store, name string, f
 	return st.SaveServer(s)
 }
 
-// Restart stops then starts the server
 func Restart(ctx context.Context, d *docker.Client, st *store.Store, name string) error {
 	if err := Stop(ctx, d, st, name, false, 30); err != nil {
 		return err
@@ -75,8 +72,6 @@ func Restart(ctx context.Context, d *docker.Client, st *store.Store, name string
 	return err
 }
 
-// RecreateContainer stops and removes the existing container, then creates a new one
-// with the current server config (e.g. after changing modpack or env). Starts the new container.
 func RecreateContainer(ctx context.Context, d *docker.Client, st *store.Store, name string) (*domain.Server, error) {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
@@ -109,7 +104,6 @@ func RecreateContainer(ctx context.Context, d *docker.Client, st *store.Store, n
 	return s, st.SaveServer(s)
 }
 
-// Delete stops and removes the container; does not delete world data unless purge
 func Delete(ctx context.Context, d *docker.Client, st *store.Store, name string, purge bool) error {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {

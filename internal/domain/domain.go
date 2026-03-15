@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-// Server status constants
 const (
 	StatusCreating = "creating"
 	StatusRunning  = "running"
@@ -11,7 +10,6 @@ const (
 	StatusDeleted  = "deleted"
 )
 
-// Valid server types for itzg/minecraft-server
 const (
 	TypeVanilla  = "vanilla"
 	TypePaper    = "paper"
@@ -22,7 +20,6 @@ const (
 	TypeQuilt    = "quilt"
 )
 
-// Server represents a Minecraft server record
 type Server struct {
 	ID               string    `json:"id"`
 	Name             string    `json:"name"`
@@ -39,7 +36,6 @@ type Server struct {
 	ModpackVersion   *string   `json:"modpack_version,omitempty"`
 	ModsLocked       bool      `json:"mods_locked"`
 	JavaFlags        string    `json:"java_flags"`
-	// ImageTag is the itzg/minecraft-server image tag (e.g. java8, java17, latest) for Java version compatibility
 	ImageTag         string    `json:"image_tag,omitempty"`
 	DataDir          string    `json:"data_dir"`
 	BackupDir        string    `json:"backup_dir"`
@@ -51,7 +47,6 @@ type Server struct {
 	AutoBackupNextAt *time.Time `json:"auto_backup_next_at,omitempty"`
 }
 
-// Mod represents an installed mod (Modrinth/CurseForge)
 type Mod struct {
 	ID          string    `json:"id"`
 	Source      string    `json:"source"`
@@ -65,7 +60,6 @@ type Mod struct {
 	AddedAt     time.Time `json:"added_at"`
 }
 
-// Backup represents a backup record
 type Backup struct {
 	ID        string    `json:"id"`
 	Path      string    `json:"path"`
@@ -73,7 +67,6 @@ type Backup struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Config is the global minectl config
 type Config struct {
 	DefaultMemoryMB          int  `json:"default_memory_mb"`
 	DefaultDataDir           string `json:"default_data_dir"`
@@ -83,7 +76,6 @@ type Config struct {
 	AutoBackupIntervalHours  int  `json:"auto_backup_interval_hours"`
 }
 
-// EnabledModURLs returns download URLs for all enabled mods
 func (s *Server) EnabledModURLs() []string {
 	var urls []string
 	for _, m := range s.Mods {
@@ -94,7 +86,6 @@ func (s *Server) EnabledModURLs() []string {
 	return urls
 }
 
-// ResolvedModpackURL returns the Modrinth modpack URL for the itzg image
 func (s *Server) ResolvedModpackURL() string {
 	if s.ModpackSource == nil || *s.ModpackSource != "modrinth" || s.ModpackID == nil {
 		return ""

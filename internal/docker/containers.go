@@ -13,7 +13,6 @@ import (
 	"github.com/minectl/minectl/internal/domain"
 )
 
-// CreateMinecraftContainer creates a container for the given server using itzg/minecraft-server
 func (c *Client) CreateMinecraftContainer(ctx context.Context, s *domain.Server, env []string) (string, error) {
 	containerName := config.ContainerNamePrefix + s.Name
 
@@ -63,12 +62,10 @@ func (c *Client) CreateMinecraftContainer(ctx context.Context, s *domain.Server,
 	return resp.ID, nil
 }
 
-// StartContainer starts a container by ID
 func (c *Client) StartContainer(ctx context.Context, containerID string) error {
 	return c.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
 }
 
-// StopContainer stops a container with optional timeout (seconds). 0 = default.
 func (c *Client) StopContainer(ctx context.Context, containerID string, timeoutSec *int) error {
 	opts := container.StopOptions{}
 	if timeoutSec != nil && *timeoutSec > 0 {
@@ -77,17 +74,14 @@ func (c *Client) StopContainer(ctx context.Context, containerID string, timeoutS
 	return c.cli.ContainerStop(ctx, containerID, opts)
 }
 
-// RemoveContainer removes a container (force if running)
 func (c *Client) RemoveContainer(ctx context.Context, containerID string) error {
 	return c.cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
 }
 
-// InspectContainer returns container inspect info
 func (c *Client) InspectContainer(ctx context.Context, containerID string) (interface{}, error) {
 	return c.cli.ContainerInspect(ctx, containerID)
 }
 
-// ContainerByName finds a container ID by name (minectl-<name>)
 func (c *Client) ContainerByName(ctx context.Context, name string) (string, error) {
 	containers, err := c.cli.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
@@ -104,7 +98,6 @@ func (c *Client) ContainerByName(ctx context.Context, name string) (string, erro
 	return "", fmt.Errorf("container not found: %s", name)
 }
 
-// ListContainers returns all minectl containers
 func (c *Client) ListContainers(ctx context.Context) ([]string, error) {
 	containers, err := c.cli.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
@@ -122,7 +115,6 @@ func (c *Client) ListContainers(ctx context.Context) ([]string, error) {
 	return ids, nil
 }
 
-// ContainerRunning returns true if the container is running
 func (c *Client) ContainerRunning(ctx context.Context, containerID string) (bool, error) {
 	inspect, err := c.cli.ContainerInspect(ctx, containerID)
 	if err != nil {

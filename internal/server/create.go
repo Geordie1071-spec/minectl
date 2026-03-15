@@ -24,10 +24,9 @@ type CreateOptions struct {
 	Port           int
 	DataDir        string
 	NoStart        bool
-	ModpackID      string // Modrinth modpack slug
-	ModpackVersion string // optional version ID
-	// OnProgress is called with status messages during create (e.g. for progress UI). Optional.
-	OnProgress func(msg string)
+	ModpackID      string
+	ModpackVersion string
+	OnProgress     func(msg string)
 }
 
 func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateOptions) (*domain.Server, error) {
