@@ -1,4 +1,4 @@
-version: 2
+# GoReleaser v1 config (no version key = v1)
 project_name: minectl
 
 builds:
