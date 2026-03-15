@@ -45,19 +45,20 @@ fi
 # 2. Resolve version (latest release or pinned)
 VERSION="${MINECTL_VERSION:-}"
 if [ -z "$VERSION" ] && command -v curl &>/dev/null; then
-  # e.g. https://github.com/minectl/minectl -> minectl/minectl
   REPO_PATH="${REPO#https://github.com/}"
   REPO_PATH="${REPO_PATH#http://github.com/}"
   REPO_PATH="${REPO_PATH%.git}"
-  [ -n "$REPO_PATH" ] && VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep -oP '"tag_name":\s*"\K[^"]+' || true)
+  [ -n "$REPO_PATH" ] && VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') || true
 fi
-[ -z "$VERSION" ] && VERSION="v0.1.0"
+# Fallback: use a known-good release if API failed (e.g. rate limit, no network)
+[ -z "$VERSION" ] && VERSION="v0.1.4"
 
 # 3. Download and install minectl
 INSTALLED=
 DOWNLOAD_URL="${REPO}/releases/download/${VERSION}/minectl_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+echo "Downloading minectl ${VERSION} ($OS/$ARCH)..."
 if command -v curl &>/dev/null; then
-  if curl -sSLf -o "/tmp/${BINARY}.tar.gz" "$DOWNLOAD_URL" 2>/dev/null; then
+  if curl -sSLf -o "/tmp/${BINARY}.tar.gz" "$DOWNLOAD_URL"; then
     tar -xzf "/tmp/${BINARY}.tar.gz" -C /tmp
     sudo mkdir -p "$INSTALL_DIR"
     sudo mv "/tmp/${BINARY}" "${INSTALL_DIR}/${BINARY}"

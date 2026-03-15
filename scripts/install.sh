@@ -33,7 +33,7 @@ if [ -z "$VERSION" ] && command -v curl >/dev/null 2>&1; then
   REPO_PATH="${REPO_PATH%.git}"
   [ -n "$REPO_PATH" ] && VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') || true
 fi
-[ -z "$VERSION" ] && VERSION="v0.1.0"
+[ -z "$VERSION" ] && VERSION="v0.1.4"
 URL="${REPO}/releases/download/${VERSION}/minectl_${VERSION#v}_${OS}_${ARCH}.tar.gz"
 
 echo "Downloading $BINARY $VERSION ($OS/$ARCH)..."
