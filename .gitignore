@@ -1,0 +1,22 @@
+# Binaries (not the cmd/minectl/ source folder)
+bin/
+/minectl
+/minectl.exe
+minectl-*
+*.exe
+
+# Go
+vendor/
+*.test
+*.out
+go.work
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local config (optional; remove if you want to track)
+# .minectl/
