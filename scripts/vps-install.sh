@@ -4,7 +4,7 @@
 # Optional: MINECTL_VERSION=v0.1.0 to pin version; MINECTL_SKIP_DOCKER=1 to skip Docker install.
 set -e
 
-REPO="${MINECTL_REPO:-https://github.com/minectl/minectl}"
+REPO="${MINECTL_REPO:-https://github.com/Geordie1071-spec/minectl}"
 INSTALL_DIR="${MINECTL_INSTALL_DIR:-/usr/local/bin}"
 BINARY="minectl"
 

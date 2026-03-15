@@ -28,16 +28,16 @@ minectl exec survival "say Hello"
 
 ## Install
 
-- **From source:** `go install github.com/minectl/minectl/cmd/minectl@latest`
-- **Script:** `curl -sSL https://raw.githubusercontent.com/minectl/minectl/main/scripts/install.sh | bash`
-- **Releases:** download the binary for your OS/arch from [Releases](https://github.com/minectl/minectl/releases).
+- **From source:** `go install github.com/Geordie1071-spec/minectl/cmd/minectl@latest`
+- **Script:** `curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash`
+- **Releases:** download the binary for your OS/arch from [Releases](https://github.com/Geordie1071-spec/minectl/releases).
 
 ### Install on your VPS (one command)
 
 On a fresh **Ubuntu or Debian** VPS (e.g. Hetzner, DigitalOcean), run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/minectl/minectl/main/scripts/vps-install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/vps-install.sh | bash
 ```
 
 This installs **Docker** (if missing) and **minectl**, creates data dirs, and prints next steps. Then:

@@ -2,7 +2,7 @@
 # Install minectl — Minecraft server manager (Docker-based)
 set -e
 
-REPO="${MINECTL_REPO:-https://github.com/minectl/minectl}"
+REPO="${MINECTL_REPO:-https://github.com/Geordie1071-spec/minectl}"
 LATEST_URL="${REPO}/releases/latest"
 API_URL="${REPO/releases\/latest/releases}"
 INSTALL_DIR="${MINECTL_INSTALL_DIR:-/usr/local/bin}"
