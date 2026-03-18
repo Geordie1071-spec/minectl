@@ -3,9 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -35,9 +35,9 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Deleted"), name)
+		fmt.Println("Deleted", name)
 		if deletePurge {
-			fmt.Println(tui.DimStyle.Render("World data removed."))
+			fmt.Fprintln(os.Stderr, "Warning: world data removed (irreversible).")
 		}
 	}
 	return nil

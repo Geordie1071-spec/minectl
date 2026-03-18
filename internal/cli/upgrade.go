@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +36,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Upgraded"), args[0], "to", upgradeVersion)
+		fmt.Println("Upgraded", args[0], "to", upgradeVersion)
 	}
 	return nil
 }

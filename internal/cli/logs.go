@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -43,9 +42,9 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	lines = tui.FilterLogLines(lines, logsFilter)
+	lines = filterLogLines(lines, logsFilter)
 	for _, l := range lines {
-		fmt.Println(tui.ColorLogLine(l))
+		fmt.Println(l)
 	}
 	if logsFollow {
 		ch := make(chan string, 50)
@@ -54,9 +53,22 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		}()
 		for line := range ch {
 			if logsFilter == "" || strings.Contains(line, logsFilter) {
-				fmt.Println(tui.ColorLogLine(line))
+				fmt.Println(line)
 			}
 		}
 	}
 	return nil
+}
+
+func filterLogLines(lines []string, contains string) []string {
+	if contains == "" {
+		return lines
+	}
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if strings.Contains(l, contains) {
+			out = append(out, l)
+		}
+	}
+	return out
 }

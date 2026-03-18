@@ -12,7 +12,6 @@ import (
 	"github.com/minectl/minectl/internal/domain"
 	"github.com/minectl/minectl/internal/modrinth"
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -98,7 +97,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			version = info.MCVersion
 			modpackVersion = info.ModpackVersionID
 			if !quiet {
-				fmt.Println(tui.DimStyle.Render("Using modpack-compatible Minecraft version: " + version))
+				fmt.Println("Using modpack-compatible Minecraft version:", version)
 			}
 		} else {
 			ok, err := mc.ModpackSupportsVersion(createModpack, createVersion, loader)
@@ -130,16 +129,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	var s *domain.Server
-	if quiet || jsonOut {
-		s, err = server.Create(ctx, d, st, opts)
-	} else {
-		err = tui.RunProgress("Preparing...", func(update func(string)) error {
-			opts.OnProgress = update
-			var createErr error
-			s, createErr = server.Create(ctx, d, st, opts)
-			return createErr
-		})
-	}
+	s, err = server.Create(ctx, d, st, opts)
 	if err != nil {
 		return err
 	}
@@ -147,7 +137,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return printJSON(s)
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Server created:"), s.Name)
+		fmt.Println("Server created:", s.Name)
 		fmt.Println("  Type:", s.MCType, "| Version:", s.MCVersion, "| Port:", s.Port, "| Memory:", s.MemoryMB, "MB")
 		if s.ModpackID != nil && *s.ModpackID != "" {
 			fmt.Println("  Modpack:", *s.ModpackID)

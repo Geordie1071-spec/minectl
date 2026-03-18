@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/minectl/minectl/internal/modrinth"
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -55,12 +55,15 @@ func init() {
 func runModsAdd(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	st := getStore()
+	if !quiet {
+		fmt.Fprintln(os.Stderr, "Warning: individual mods can conflict; prefer a modpack when possible.")
+	}
 	mod, err := server.AddMod(ctx, st, args[0], args[1], modsVersion)
 	if err != nil {
 		return err
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Mod added:"), mod.ModName)
+		fmt.Println("Mod added:", mod.ModName)
 	}
 	return nil
 }

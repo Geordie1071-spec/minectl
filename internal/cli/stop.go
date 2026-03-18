@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +36,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Stopped"), name)
+		fmt.Println("Stopped", name)
 	}
 	return nil
 }

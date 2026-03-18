@@ -18,8 +18,7 @@ minectl start survival
 minectl stop survival
 minectl restart survival
 
-# Console (interactive) or one-off command
-minectl console survival
+# One-off server command
 minectl exec survival "say Hello"
 ```
 
@@ -39,7 +38,7 @@ minectl exec survival "say Hello"
 On a fresh **Ubuntu or Debian** VPS (e.g. Hetzner, DigitalOcean), run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/vps-install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash
 ```
 
 This installs **Docker** (if missing) and **minectl**, creates data dirs, and prints next steps. Then:
@@ -62,13 +61,12 @@ To pin version: `MINECTL_VERSION=v0.1.0 curl -sSL ... | bash`
 | `list` | List all servers |
 | `start` / `stop` / `restart` | Lifecycle |
 | `delete` | Remove container (use `--purge` to delete world data) |
-| `console` | Interactive TUI console |
 | `exec` | Run a single command (e.g. `exec survival "op Steve"`) |
 | `logs` | Tail logs (`--follow` to stream) |
 | `stats` | CPU/memory usage |
 | `backup create/list/restore` | Backups |
 | `mods add/list` | Modrinth mods (Fabric/Forge) |
-| `modpack set/info` | Modpack (Modrinth) |
+| `modpack set/info/search` | Modpack (Modrinth) |
 | `upgrade` | Upgrade MC version |
 
 ## Config and data

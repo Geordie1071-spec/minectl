@@ -81,6 +81,29 @@ func (c *Client) SearchMods(query, gameVersion, loader string) ([]ModResult, err
 	return result.Hits, nil
 }
 
+func (c *Client) SearchModpacks(query string) ([]ModResult, error) {
+	u := baseURL + "/search?query=" + url.QueryEscape(query) + "&limit=20"
+	facetsJSON, _ := json.Marshal([][]string{{"project_type:modpack"}})
+	u += "&facets=" + url.QueryEscape(string(facetsJSON))
+
+	resp, err := c.http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("modrinth api: %s: %s", resp.Status, string(body))
+	}
+	var result struct {
+		Hits []ModResult `json:"hits"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result.Hits, nil
+}
+
 func (c *Client) GetCompatibleVersions(modID, gameVersion, loader string) ([]ModVersion, error) {
 	u := baseURL + "/project/" + url.PathEscape(modID) + "/version"
 	u += "?game_versions=" + url.QueryEscape(gameVersion)

@@ -3,9 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/minectl/minectl/internal/modrinth"
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -30,9 +31,17 @@ var modpackInfoCmd = &cobra.Command{
 	RunE:  runModpackInfo,
 }
 
+var modpackSearchCmd = &cobra.Command{
+	Use:   "search [query]",
+	Short: "Search Modrinth for modpacks",
+	Long:  "Search for Modrinth modpacks by name. Use the returned slug with: minectl create --modpack <slug> ...",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runModpackSearch,
+}
+
 func init() {
 	modpackSetCmd.Flags().StringVarP(&modpackVersion, "version", "v", "", "modpack version")
-	modpackCmd.AddCommand(modpackSetCmd, modpackInfoCmd)
+	modpackCmd.AddCommand(modpackSetCmd, modpackInfoCmd, modpackSearchCmd)
 }
 
 func runModpackSet(cmd *cobra.Command, args []string) error {
@@ -65,11 +74,11 @@ func runModpackSet(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("recreate container with modpack: %w", err)
 		}
 		if !quiet {
-			fmt.Println(tui.SuccessStyle.Render("Modpack set and server recreated:"), name, "→", packSlug)
+			fmt.Println("Modpack set and server recreated:", name, "→", packSlug)
 		}
 	} else {
 		if !quiet {
-			fmt.Println(tui.SuccessStyle.Render("Modpack set:"), name, "→", packSlug, "(start the server to apply)")
+			fmt.Println("Modpack set:", name, "→", packSlug, "(start the server to apply)")
 		}
 	}
 	return nil
@@ -91,5 +100,31 @@ func runModpackInfo(cmd *cobra.Command, args []string) error {
 		}
 		return "latest"
 	}())
+	return nil
+}
+
+func runModpackSearch(cmd *cobra.Command, args []string) error {
+	query := args[0]
+	client := modrinth.NewClient()
+	hits, err := client.SearchModpacks(query)
+	if err != nil {
+		return err
+	}
+	if len(hits) == 0 {
+		fmt.Println("No modpacks found. Try a different query.")
+		return nil
+	}
+	if !quiet {
+		fmt.Printf("Modpacks matching %q:\n", query)
+		fmt.Println("  Slug / ID          Title")
+		fmt.Println("  ------------------  -----")
+	}
+	for _, h := range hits {
+		fmt.Printf("  %-18s  %s\n", h.Slug, h.Title)
+	}
+	if !quiet {
+		fmt.Println()
+		fmt.Fprintln(os.Stderr, "Tip: create with: minectl create --modpack <slug> --type fabric|forge|quilt")
+	}
 	return nil
 }

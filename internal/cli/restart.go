@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +28,7 @@ func runRestart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Restarted"), name)
+		fmt.Println("Restarted", name)
 	}
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/minectl/minectl/internal/server"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +52,7 @@ func runBackupCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println(tui.SuccessStyle.Render("Backup created:"), b.ID, humanize.Bytes(uint64(b.SizeBytes)))
+		fmt.Println("Backup created:", b.ID, humanize.Bytes(uint64(b.SizeBytes)))
 	}
 	return nil
 }

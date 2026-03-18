@@ -19,6 +19,11 @@ func AddMod(ctx context.Context, st *store.Store, name, modIDOrSlug, version str
 	if s.ModsLocked {
 		return nil, fmt.Errorf("server uses a modpack; cannot add individual mods")
 	}
+	for _, existing := range s.Mods {
+		if existing.Source == "modrinth" && existing.ModID == modIDOrSlug {
+			return nil, fmt.Errorf("mod already added: %s", modIDOrSlug)
+		}
+	}
 	loader := modrinth.NormalizeLoader(s.MCType)
 	if loader == "" {
 		return nil, fmt.Errorf("server type %s does not support mods", s.MCType)

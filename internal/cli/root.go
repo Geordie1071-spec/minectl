@@ -39,7 +39,7 @@ func init() {
 	rootCmd.Version = config.Version
 
 	rootCmd.AddCommand(createCmd, listCmd, startCmd, stopCmd, restartCmd, deleteCmd)
-	rootCmd.AddCommand(consoleCmd, execCmd, logsCmd, statsCmd)
+	rootCmd.AddCommand(execCmd, logsCmd, statsCmd)
 	rootCmd.AddCommand(backupCmd, modsCmd, modpackCmd, upgradeCmd)
 }
 

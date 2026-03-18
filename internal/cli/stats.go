@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/minectl/minectl/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -43,15 +43,17 @@ func runStats(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		view := &tui.ContainerStatsView{
-			CPUPercent:    stats.CPUPercent,
-			MemoryUsage:   stats.MemoryUsage,
-			MemoryLimit:   stats.MemoryLimit,
-			MemoryPercent: stats.MemoryPercent,
-		}
-		fmt.Print(tui.RenderStats(s.Name, s.MCType, s.MCVersion, s.Status, "", view))
 		if !quiet {
-			fmt.Printf("  Memory    %s / %s\n", humanize.Bytes(stats.MemoryUsage), humanize.Bytes(stats.MemoryLimit))
+			fmt.Printf("%s  CPU %.1f%%  Mem %s / %s (%.1f%%)\n",
+				s.Name,
+				stats.CPUPercent,
+				humanize.Bytes(stats.MemoryUsage),
+				humanize.Bytes(stats.MemoryLimit),
+				stats.MemoryPercent,
+			)
+		} else {
+			// keep command useful even with --quiet (esp. with --json elsewhere)
+			fmt.Fprintln(os.Stdout, stats.CPUPercent)
 		}
 		if !statsWatch {
 			break
