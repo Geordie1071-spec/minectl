@@ -52,7 +52,6 @@ func runStats(cmd *cobra.Command, args []string) error {
 				stats.MemoryPercent,
 			)
 		} else {
-			// keep command useful even with --quiet (esp. with --json elsewhere)
 			fmt.Fprintln(os.Stdout, stats.CPUPercent)
 		}
 		if !statsWatch {

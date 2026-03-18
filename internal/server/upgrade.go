@@ -19,7 +19,7 @@ func Upgrade(ctx context.Context, d *docker.Client, st *store.Store, name, newVe
 			return fmt.Errorf("pre-upgrade backup failed: %w", err)
 		}
 	}
-	if err := Stop(ctx, d, st, name, true, 15); err != nil {
+	if err := Stop(ctx, d, st, name, true, 15, nil); err != nil {
 		return err
 	}
 	if s.ContainerID != "" {
@@ -37,6 +37,6 @@ func Upgrade(ctx context.Context, d *docker.Client, st *store.Store, name, newVe
 	if err := st.SaveServer(s); err != nil {
 		return err
 	}
-	_, err = Start(ctx, d, st, name)
+	_, err = Start(ctx, d, st, name, nil)
 	return err
 }

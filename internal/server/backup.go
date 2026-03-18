@@ -71,7 +71,7 @@ func RestoreBackup(ctx context.Context, d *docker.Client, st *store.Store, name,
 	if target == nil {
 		return fmt.Errorf("backup not found: %s", backupID)
 	}
-	_ = Stop(ctx, d, st, name, true, 10)
-	_, err = Start(ctx, d, st, name)
+	_ = Stop(ctx, d, st, name, true, 10, nil)
+	_, err = Start(ctx, d, st, name, nil)
 	return err
 }

@@ -33,6 +33,16 @@ minectl exec survival "say Hello"
 - **Script:** `curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash`
 - **Releases:** download the binary for your OS/arch from [Releases](https://github.com/Geordie1071-spec/minectl/releases).
 
+Note: the install script also sets up bash tab-completion for `minectl` automatically.
+
+### Uninstall
+
+To remove the `minectl` binary:
+`curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash`
+
+To also delete config/data (destructive):
+`MINECTL_PURGE=1 curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash`
+
 ### Install on your VPS (one command)
 
 On a fresh **Ubuntu or Debian** VPS (e.g. Hetzner, DigitalOcean), run:

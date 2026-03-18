@@ -17,6 +17,8 @@ case "$ARCH" in
 esac
 [ "$OS" = "linux" ] || { echo "This script is for Linux."; exit 1; }
 
+TARGET_USER="${SUDO_USER:-$(whoami)}"
+
 if [ -z "${MINECTL_SKIP_DOCKER}" ] && ! command -v docker &>/dev/null; then
   if command -v apt-get &>/dev/null; then
     echo "Docker not found. Installing Docker..."
@@ -79,6 +81,41 @@ if [ -z "${INSTALLED}" ]; then
     echo "  Option 1: Build on this machine: go install ${REPO}/cmd/minectl@latest"
     echo "  Option 2: Download from ${REPO}/releases"
     exit 1
+  fi
+fi
+
+if [ -x "${INSTALL_DIR}/${BINARY}" ]; then
+  COMPLETION_DIR="${TARGET_HOME}/.local/share/bash-completion/completions"
+  COMPLETION_FILE="${COMPLETION_DIR}/${BINARY}"
+  BASHRC_FILE="${TARGET_HOME}/.bashrc"
+
+  echo "Setting up bash completion..."
+
+  if [ -n "${SUDO_USER:-}" ]; then
+    sudo mkdir -p "${COMPLETION_DIR}" 2>/dev/null || true
+    sudo bash -c "\"${INSTALL_DIR}/${BINARY}\" completion bash > \"${COMPLETION_FILE}\"" 2>/dev/null || true
+    sudo chown -R "${TARGET_USER}:${TARGET_USER}" "${COMPLETION_DIR}" 2>/dev/null || true
+    sudo touch "${BASHRC_FILE}" 2>/dev/null || true
+    if ! sudo grep -q "# minectl bash completion" "${BASHRC_FILE}" 2>/dev/null; then
+      sudo tee -a "${BASHRC_FILE}" >/dev/null <<EOF
+# minectl bash completion
+if [ -f "${COMPLETION_FILE}" ]; then
+  . "${COMPLETION_FILE}"
+fi
+EOF
+    fi
+  else
+    mkdir -p "${COMPLETION_DIR}" 2>/dev/null || true
+    "${INSTALL_DIR}/${BINARY}" completion bash > "${COMPLETION_FILE}" 2>/dev/null || true
+    touch "${BASHRC_FILE}" 2>/dev/null || true
+    if ! grep -q "# minectl bash completion" "${BASHRC_FILE}" 2>/dev/null; then
+      cat >> "${BASHRC_FILE}" <<EOF
+# minectl bash completion
+if [ -f "${COMPLETION_FILE}" ]; then
+  . "${COMPLETION_FILE}"
+fi
+EOF
+    fi
   fi
 fi
 

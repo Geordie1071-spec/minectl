@@ -16,6 +16,8 @@ type ModResult struct {
 	ProjectID   string   `json:"project_id"`
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
+	Categories  []string `json:"categories"`
+	Downloads   int      `json:"downloads"`
 	Versions    []string `json:"versions"`
 }
 
@@ -82,7 +84,7 @@ func (c *Client) SearchMods(query, gameVersion, loader string) ([]ModResult, err
 }
 
 func (c *Client) SearchModpacks(query string) ([]ModResult, error) {
-	u := baseURL + "/search?query=" + url.QueryEscape(query) + "&limit=20"
+	u := baseURL + "/search?query=" + url.QueryEscape(query) + "&limit=20&index=downloads"
 	facetsJSON, _ := json.Marshal([][]string{{"project_type:modpack"}})
 	u += "&facets=" + url.QueryEscape(string(facetsJSON))
 

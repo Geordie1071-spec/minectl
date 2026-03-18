@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/minectl/minectl/internal/modrinth"
 	"github.com/minectl/minectl/internal/server"
 	"github.com/spf13/cobra"
@@ -69,7 +71,7 @@ func runModpackSet(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		defer d.Close()
-		s, err = server.RecreateContainer(ctx, d, st, name)
+		s, err = server.RecreateContainer(ctx, d, st, name, nil)
 		if err != nil {
 			return fmt.Errorf("recreate container with modpack: %w", err)
 		}
@@ -116,15 +118,42 @@ func runModpackSearch(cmd *cobra.Command, args []string) error {
 	}
 	if !quiet {
 		fmt.Printf("Modpacks matching %q:\n", query)
-		fmt.Println("  Slug / ID          Title")
-		fmt.Println("  ------------------  -----")
+		fmt.Println("  Slug / ID          Loaders                         Downloads   Title")
+		fmt.Println("  ------------------  --------------------------------  ---------  -----")
 	}
 	for _, h := range hits {
-		fmt.Printf("  %-18s  %s\n", h.Slug, h.Title)
+		loaders := inferLoadersFromCategories(h.Categories)
+		fmt.Printf(
+			"  %-18s  %-32s  %-10s  %s\n",
+			h.Slug,
+			strings.Join(loaders, ","),
+			humanize.Comma(int64(h.Downloads)),
+			h.Title,
+		)
 	}
 	if !quiet {
 		fmt.Println()
-		fmt.Fprintln(os.Stderr, "Tip: create with: minectl create --modpack <slug> --type fabric|forge|quilt")
+		fmt.Fprintln(os.Stderr, "Tip: create with: minectl create --modpack <slug> [--type fabric|forge|neoforge|quilt]")
 	}
 	return nil
+}
+
+func inferLoadersFromCategories(categories []string) []string {
+	known := []string{"fabric", "forge", "neoforge", "quilt"}
+
+	set := make(map[string]struct{}, len(categories))
+	for _, c := range categories {
+		set[strings.ToLower(c)] = struct{}{}
+	}
+
+	out := make([]string, 0, len(known))
+	for _, k := range known {
+		if _, ok := set[k]; ok {
+			out = append(out, k)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"?unknown"}
+	}
+	return out
 }

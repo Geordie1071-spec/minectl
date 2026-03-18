@@ -24,7 +24,10 @@ func runRestart(cmd *cobra.Command, args []string) error {
 	}
 	defer d.Close()
 	st := getStore()
-	if err := server.Restart(ctx, d, st, name); err != nil {
+	pb := NewProgressBar("")
+	defer pb.End()
+
+	if err := server.Restart(ctx, d, st, name, pb.ServerProgress()); err != nil {
 		return err
 	}
 	if !quiet {

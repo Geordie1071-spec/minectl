@@ -84,11 +84,30 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	version := createVersion
 	modpackVersion := createModpackVersion
 	if createModpack != "" {
-		loader := modrinth.NormalizeLoader(createType)
-		if loader == "" {
-			return fmt.Errorf("modpack requires a mod loader (use --type fabric, forge, or quilt), not %q", createType)
-		}
 		mc := modrinth.NewClient()
+
+		typeFlagChanged := cmd.Flags().Changed("type")
+		loader := ""
+		if typeFlagChanged {
+			loader = modrinth.NormalizeLoader(createType)
+			if loader == "" {
+				return fmt.Errorf("modpack requires a mod loader (use --type fabric, forge, neoforge, or quilt), not %q", createType)
+			}
+		} else {
+			inferredType, err := inferModpackServerType(mc, createModpack, createVersion)
+			if err != nil {
+				return fmt.Errorf("infer mod loader for modpack %q: %w", createModpack, err)
+			}
+			createType = inferredType
+			loader = modrinth.NormalizeLoader(createType)
+			if loader == "" {
+				return fmt.Errorf("inferred mod loader is invalid: %q", createType)
+			}
+			if !quiet {
+				fmt.Println("Inferred mod loader from modpack:", createType)
+			}
+		}
+
 		if createVersion == "" || strings.ToLower(createVersion) == "latest" {
 			info, err := mc.GetModpackRecommendedVersion(createModpack, loader)
 			if err != nil {
@@ -148,6 +167,61 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func mapModrinthLoaderToServerType(loader string) string {
+	switch strings.ToLower(loader) {
+	case "fabric":
+		return domain.TypeFabric
+	case "forge":
+		return domain.TypeForge
+	case "neoforge":
+		return domain.TypeNeoForge
+	case "quilt":
+		return domain.TypeQuilt
+	default:
+		return ""
+	}
+}
+
+func inferModpackServerType(mc *modrinth.Client, modpackSlug, requestedVersion string) (string, error) {
+	versions, err := mc.GetModpackVersions(modpackSlug, "")
+	if err != nil {
+		return "", err
+	}
+	if len(versions) == 0 {
+		return "", fmt.Errorf("no versions found")
+	}
+
+	var chosen modrinth.ModpackVersion
+	if requestedVersion == "" || strings.ToLower(requestedVersion) == "latest" {
+		chosen = versions[0]
+	} else {
+		found := false
+		for _, v := range versions {
+			for _, gv := range v.GameVersions {
+				if gv == requestedVersion {
+					chosen = v
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			return "", fmt.Errorf("no modpack version found for Minecraft %q", requestedVersion)
+		}
+	}
+
+	for _, l := range chosen.Loaders {
+		if serverType := mapModrinthLoaderToServerType(l); serverType != "" {
+			return serverType, nil
+		}
+	}
+
+	return "", fmt.Errorf("modpack version has no supported loaders")
 }
 
 func printJSON(v interface{}) error {

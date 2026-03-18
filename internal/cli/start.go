@@ -24,7 +24,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	defer d.Close()
 	st := getStore()
-	s, err := server.Start(ctx, d, st, name)
+
+	pb := NewProgressBar("")
+	defer pb.End()
+	s, err := server.Start(ctx, d, st, name, pb.ServerProgress())
 	if err != nil {
 		return err
 	}

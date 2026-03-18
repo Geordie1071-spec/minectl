@@ -32,7 +32,11 @@ func runStop(cmd *cobra.Command, args []string) error {
 	}
 	defer d.Close()
 	st := getStore()
-	if err := server.Stop(ctx, d, st, name, stopForce, stopTimeout); err != nil {
+
+	pb := NewProgressBar("")
+	defer pb.End()
+
+	if err := server.Stop(ctx, d, st, name, stopForce, stopTimeout, pb.ServerProgress()); err != nil {
 		return err
 	}
 	if !quiet {
