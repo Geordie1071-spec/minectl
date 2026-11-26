@@ -68,6 +68,28 @@ export interface Server {
   job?: Job;
   data_dir?: string;
   backups?: number;
+  backup_schedule?: "hourly" | "6h" | "daily";
+  next_backup_at?: string;
+  last_crash_at?: string;
+  last_crash_reason?: string;
+}
+
+export interface Properties {
+  motd?: string;
+  max_players?: number;
+  difficulty?: string;
+  gamemode?: string;
+  view_distance?: number;
+  pvp?: boolean;
+  hardcore?: boolean;
+  online_mode?: boolean;
+  whitelist?: boolean;
+  allow_flight?: boolean;
+}
+
+export interface PanelSettings {
+  discord_webhook_set: boolean;
+  backup_retention: number;
 }
 
 export interface Backup {

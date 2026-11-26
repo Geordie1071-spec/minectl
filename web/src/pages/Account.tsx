@@ -5,6 +5,7 @@ import { useMe } from "../hooks";
 import { PageTitle } from "../layout";
 import { timeAgo } from "../format";
 import { Alert, Button, Card, CopyButton, Field, Input } from "../ui";
+import { PanelSettings } from "./PanelSettings";
 
 export function Account() {
   const { data: me } = useMe();
@@ -45,7 +46,7 @@ export function Account() {
 
   return (
     <>
-      <PageTitle description="Your password and personal API tokens.">Account</PageTitle>
+      <PageTitle description={me?.user.is_admin ? "Your account, API tokens, and panel-wide settings." : "Your password and personal API tokens."}>Settings</PageTitle>
       <div className="stagger grid gap-4 lg:grid-cols-2">
         <Card title={`Password for ${me?.user.username ?? ""}`}>
           <form onSubmit={changePassword} className="space-y-3">
@@ -109,6 +110,7 @@ export function Account() {
           )}
         </Card>
         </div>
+        {me?.user.is_admin && <PanelSettings />}
       </div>
     </>
   );

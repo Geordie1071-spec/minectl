@@ -46,5 +46,5 @@ func BuildEnvVars(s *domain.Server) []string {
 	if s.JavaFlags != "" {
 		env = append(env, "JVM_OPTS="+s.JavaFlags)
 	}
-	return env
+	return append(env, propertyEnv(s.Properties)...)
 }

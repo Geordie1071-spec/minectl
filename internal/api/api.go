@@ -155,6 +155,9 @@ func (a *API) routes() []route {
 		{"GET /api/v1/servers/{name}/logs", serverViewer, a.streamLogs},
 		{"GET /api/v1/servers/{name}/stats", serverViewer, a.streamStats},
 		{"GET /api/v1/servers/{name}/jobs", serverViewer, a.serverJobs},
+		{"PUT /api/v1/servers/{name}/backup-schedule", serverAdmin, a.setBackupSchedule},
+		{"GET /api/v1/servers/{name}/properties", serverViewer, a.getProperties},
+		{"PUT /api/v1/servers/{name}/properties", serverAdmin, a.setProperties},
 
 		{"GET /api/v1/jobs", admin, a.listJobs},
 		{"GET /api/v1/jobs/{id}", user, a.getJob},
@@ -166,6 +169,9 @@ func (a *API) routes() []route {
 		{"GET /api/v1/host", admin, a.host},
 		{"GET /api/v1/address", user, a.address},
 		{"GET /api/v1/audit", admin, a.listAudit},
+		{"GET /api/v1/settings", admin, a.getSettings},
+		{"PUT /api/v1/settings", admin, a.putSettings},
+		{"POST /api/v1/settings/test-notification", admin, a.testNotification},
 	}
 }
 

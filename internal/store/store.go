@@ -416,6 +416,23 @@ func (s *Store) Lock(ctx context.Context, server, holder string) (release func()
 	}, nil
 }
 
+// LockHolder reports who holds a server's lock, if anyone does.
+func (s *Store) LockHolder(server string) (string, bool) {
+	db, err := s.open()
+	if err != nil {
+		return "", false
+	}
+	var holder, expires string
+	if err := db.QueryRow(`SELECT holder, expires_at FROM locks WHERE server = ?`, server).Scan(&holder, &expires); err != nil {
+		return "", false
+	}
+	exp, err := time.Parse(time.RFC3339Nano, expires)
+	if err != nil || !exp.After(time.Now()) {
+		return "", false
+	}
+	return holder, true
+}
+
 func InitConfigDir() error {
 	if err := os.MkdirAll(config.ConfigDir(), 0755); err != nil {
 		return err

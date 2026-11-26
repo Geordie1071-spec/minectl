@@ -22,6 +22,7 @@ import (
 	"github.com/Geordie1071-spec/minectl/internal/jobs"
 	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/watch"
 	"github.com/Geordie1071-spec/minectl/internal/web"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/acme/autocert"
@@ -122,6 +123,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 		PublicAddress: strings.TrimSpace(servePublicAddr),
 		UI:            web.Handler(),
 	})
+
+	watcher := watch.New(st, &service.Manager{D: d, St: st}, runner)
+	go watcher.RunScheduler(jobCtx)
+	go watcher.RunCrashWatch(jobCtx)
 
 	servers, url, err := buildServers(handler, sigCtx)
 	if err != nil {

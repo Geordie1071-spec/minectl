@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api, srv, type Backup } from "../../api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, errorMessage, srv, type Backup } from "../../api";
 import { dateTime, formatBytes, timeAgo } from "../../format";
-import { Alert, Button, Card, Empty, Modal, Spinner } from "../../ui";
+import { Alert, Button, Card, Empty, Modal, Select, Spinner } from "../../ui";
 import { can, type TabProps } from "./ServerPage";
 
 export function Backups({ s, runJob }: TabProps) {
@@ -12,6 +12,8 @@ export function Backups({ s, runJob }: TabProps) {
   const list = [...(backups.data ?? [])].reverse();
 
   return (
+    <div className="stagger space-y-4">
+      <BackupSchedule s={s} />
     <Card
       title="Backups"
       actions={
@@ -68,5 +70,60 @@ export function Backups({ s, runJob }: TabProps) {
         </div>
       </Modal>
     </Card>
+    </div>
   );
+}
+
+const scheduleOptions = [
+  { value: "", label: "Off" },
+  { value: "hourly", label: "Every hour" },
+  { value: "6h", label: "Every 6 hours" },
+  { value: "daily", label: "Every day" },
+];
+
+function BackupSchedule({ s }: { s: TabProps["s"] }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const admin = can(s, "admin");
+
+  const change = async (schedule: string) => {
+    setSaving(true);
+    setError("");
+    try {
+      await api.put(srv(s.name) + "/backup-schedule", { schedule: schedule || "off" });
+      await qc.invalidateQueries({ queryKey: ["server", s.name] });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card
+      title="Automatic backups"
+      description={
+        s.backup_schedule && s.next_backup_at
+          ? `Next backup ${timeUntil(s.next_backup_at)}. Runs while the panel is running.`
+          : "Back up on a schedule while the panel is running. The oldest backups are removed to make room."
+      }
+      actions={
+        <div className="flex items-center gap-2">
+          {saving && <Spinner className="h-3.5 w-3.5 text-muted" />}
+          <Select value={s.backup_schedule ?? ""} onChange={change} options={scheduleOptions} disabled={!admin || saving} className="w-40" aria-label="Backup schedule" />
+        </div>
+      }
+    >
+      {error ? <Alert>{error}</Alert> : <p className="text-[13px] text-subtle">{admin ? "Admins can change how many backups are kept in Settings." : "Only admins can change the schedule."}</p>}
+    </Card>
+  );
+}
+
+function timeUntil(iso: string) {
+  const mins = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  if (mins <= 1) return "in a minute";
+  if (mins < 60) return `in ${mins} minutes`;
+  const h = Math.round(mins / 60);
+  return h < 24 ? `in ${h} hour${h === 1 ? "" : "s"}` : `on ${new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}`;
 }

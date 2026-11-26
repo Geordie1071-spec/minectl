@@ -453,3 +453,60 @@ func TestAddress(t *testing.T) {
 		t.Fatalf("lan address %q isn't an IP", ip)
 	}
 }
+
+func TestPanelSettings(t *testing.T) {
+	h := newHarness(t)
+	sess := h.setupAdmin()
+	if w := h.do("PUT", "/api/v1/settings", `{"discord_webhook":"https://evil.example/hook"}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("non-Discord webhook: %d", w.Code)
+	}
+	if w := h.do("PUT", "/api/v1/settings", `{"backup_retention":0}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("zero retention: %d", w.Code)
+	}
+	hook := "https://discord.com/api/webhooks/123/secret-token"
+	w := h.do("PUT", "/api/v1/settings", `{"discord_webhook":"`+hook+`","backup_retention":14}`, withCookie(sess))
+	if w.Code != http.StatusOK || strings.Contains(w.Body.String(), "secret-token") {
+		t.Fatalf("save settings: %d %s", w.Code, w.Body)
+	}
+	w = h.do("GET", "/api/v1/settings", "", withCookie(sess))
+	if !strings.Contains(w.Body.String(), `"discord_webhook_set":true`) || !strings.Contains(w.Body.String(), `"backup_retention":14`) || strings.Contains(w.Body.String(), "secret") {
+		t.Fatalf("settings must not reveal the webhook: %s", w.Body)
+	}
+	if cfg, _ := h.st.GetConfig(); cfg.DiscordWebhook != hook || cfg.BackupRetention != 14 {
+		t.Fatalf("config = %+v", cfg)
+	}
+	h.do("PUT", "/api/v1/settings", `{"discord_webhook":""}`, withCookie(sess))
+	if w := h.do("POST", "/api/v1/settings/test-notification", "", withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("test without webhook: %d", w.Code)
+	}
+}
+
+func TestBackupScheduleAndProperties(t *testing.T) {
+	h := newHarness(t)
+	sess := h.setupAdmin()
+	_ = h.st.SaveServer(&domain.Server{Name: "alpha"})
+	if w := h.do("PUT", "/api/v1/servers/alpha/backup-schedule", `{"schedule":"weekly"}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("bad schedule: %d", w.Code)
+	}
+	w := h.do("PUT", "/api/v1/servers/alpha/backup-schedule", `{"schedule":"daily"}`, withCookie(sess))
+	var v serverView
+	_ = json.Unmarshal(w.Body.Bytes(), &v)
+	if w.Code != http.StatusOK || v.BackupSchedule != "daily" || v.NextBackupAt == nil || time.Until(*v.NextBackupAt) < 23*time.Hour {
+		t.Fatalf("daily schedule: %d %+v", w.Code, v)
+	}
+	w = h.do("PUT", "/api/v1/servers/alpha/backup-schedule", `{"schedule":"off"}`, withCookie(sess))
+	v = serverView{}
+	_ = json.Unmarshal(w.Body.Bytes(), &v)
+	if v.BackupSchedule != "" || v.NextBackupAt != nil {
+		t.Fatalf("schedule off: %+v", v)
+	}
+	if w := h.do("PUT", "/api/v1/servers/alpha/properties", `{"difficulty":"nightmare"}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("bad difficulty: %d", w.Code)
+	}
+	if w := h.do("PUT", "/api/v1/servers/alpha/properties", `{"max_players":20,"secret":1}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("unknown field: %d", w.Code)
+	}
+	if w := h.do("GET", "/api/v1/servers/alpha/properties", "", withCookie(sess)); w.Code != http.StatusOK || strings.TrimSpace(w.Body.String()) != "{}" {
+		t.Fatalf("empty properties: %d %s", w.Code, w.Body)
+	}
+}
