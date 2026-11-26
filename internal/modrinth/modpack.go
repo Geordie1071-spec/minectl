@@ -10,12 +10,12 @@ import (
 )
 
 type ModpackRelease struct {
-	Slug          string
-	VersionID     string
-	VersionNumber string
-	MCVersion     string
-	Loader        string
-	FileURL       string
+	Slug          string `json:"slug"`
+	VersionID     string `json:"version_id"`
+	VersionNumber string `json:"version_number"`
+	MCVersion     string `json:"mc_version"`
+	Loader        string `json:"loader"`
+	FileURL       string `json:"file_url"`
 }
 
 func (c *Client) ResolveModpack(slug, loader, mcVersion, packVersion string) (*ModpackRelease, error) {

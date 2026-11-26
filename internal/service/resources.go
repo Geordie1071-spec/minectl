@@ -49,6 +49,15 @@ func ParseMemory(s string) (int, error) {
 	return n * mult, nil
 }
 
+// ValidateMemory checks a memory value the way PlanResources reads it.
+func ValidateMemory(s string) error {
+	if s == "" || strings.EqualFold(strings.TrimSpace(s), "auto") {
+		return nil
+	}
+	_, err := ParseMemory(s)
+	return err
+}
+
 func (m *Manager) host(ctx context.Context) docker.HostResources {
 	if m.D == nil {
 		return docker.HostResources{}
@@ -70,7 +79,7 @@ func (m *Manager) PlanResources(ctx context.Context, mcType string, players, mod
 			return plan, err
 		}
 		plan.MemoryMB = mb
-		plan.Warnings = append(plan.Warnings, server.CheckMemoryChoice(mb, rec, host, m.runningMemoryMB())...)
+		plan.Warnings = append(plan.Warnings, server.CheckMemoryChoice(mb, rec, host, m.RunningMemoryMB())...)
 	}
 
 	switch c := strings.ToLower(strings.TrimSpace(cpu)); c {
@@ -91,7 +100,7 @@ func (m *Manager) PlanResources(ctx context.Context, mcType string, players, mod
 	return plan, nil
 }
 
-func (m *Manager) runningMemoryMB() int {
+func (m *Manager) RunningMemoryMB() int {
 	servers, err := m.St.ListServers()
 	if err != nil {
 		return 0

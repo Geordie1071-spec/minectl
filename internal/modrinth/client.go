@@ -19,6 +19,8 @@ type ModResult struct {
 	Categories  []string `json:"categories"`
 	Downloads   int      `json:"downloads"`
 	Versions    []string `json:"versions"`
+	IconURL     string   `json:"icon_url"`
+	Author      string   `json:"author"`
 }
 
 type ModVersion struct {
