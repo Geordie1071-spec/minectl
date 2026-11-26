@@ -7,7 +7,7 @@ export function JobPage() {
   const { id = "" } = useParams();
   return (
     <div className="mx-auto max-w-3xl">
-      <PageTitle back={{ to: "/", label: "Servers" }}>Progress</PageTitle>
+      <PageTitle>Progress</PageTitle>
       <Card>
         <JobView id={id} />
       </Card>

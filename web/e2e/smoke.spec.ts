@@ -18,8 +18,7 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByLabel("Confirm password").fill("ownerpass1");
   await page.getByRole("button", { name: "Create admin account" }).click();
 
-  await expect(page.getByRole("heading", { name: "Servers" })).toBeVisible();
-  await expect(page.getByText("No servers yet")).toBeVisible();
+  await expect(page.getByText("Create your first server")).toBeVisible();
 
   await page.getByRole("link", { name: "New server" }).first().click();
   await expect(page.getByRole("heading", { name: "New server" })).toBeVisible();
@@ -37,7 +36,7 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await expect(page.getByText("friend", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: /owner/ }).click();
-  await page.getByRole("menuitem", { name: "Account and API tokens" }).click();
+  await page.getByRole("menuitem", { name: "API tokens" }).click();
   await page.getByLabel("Token name").fill("ci");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByText(/^mct_/)).toBeVisible();

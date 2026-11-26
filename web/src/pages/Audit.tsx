@@ -22,7 +22,7 @@ export function Audit() {
 
   return (
     <>
-      <PageTitle>Activity</PageTitle>
+      <PageTitle description="Every change made through the panel, newest first.">Activity</PageTitle>
       <Card>
         {q.isPending && <Spinner />}
         {q.error && <Alert>{q.error.message}</Alert>}

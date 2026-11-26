@@ -43,7 +43,7 @@ export function Setup() {
 
   return (
     <AuthShell
-      title="Set up your panel"
+      title="Set up minectl"
       subtitle={
         <>
           Create the admin account. The setup token is printed in the panel's log (<code>journalctl -u minectl</code>) and saved in{" "}

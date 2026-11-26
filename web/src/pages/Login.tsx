@@ -31,7 +31,7 @@ export function Login() {
   };
 
   return (
-    <AuthShell title="Log in">
+    <AuthShell title="Log in to minectl">
       <form onSubmit={submit} className="space-y-4">
         <Field label="Username">
           <Input value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus autoComplete="username" />

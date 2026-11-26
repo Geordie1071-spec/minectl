@@ -45,7 +45,7 @@ export function Account() {
 
   return (
     <>
-      <PageTitle>Account</PageTitle>
+      <PageTitle description="Your password and personal API tokens.">Account</PageTitle>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={`Password for ${me?.user.username ?? ""}`}>
           <form onSubmit={changePassword} className="space-y-3">
@@ -61,6 +61,7 @@ export function Account() {
             </Button>
           </form>
         </Card>
+        <div id="tokens" className="scroll-mt-32">
         <Card title="API tokens">
           <p className="text-sm text-muted">
             For scripts and bots. A token can do everything you can. Send it as <code>Authorization: Bearer …</code>.
@@ -107,6 +108,7 @@ export function Account() {
             </div>
           )}
         </Card>
+        </div>
       </div>
     </>
   );

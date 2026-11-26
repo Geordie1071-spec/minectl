@@ -181,7 +181,7 @@ export function NewServer() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageTitle back={{ to: "/", label: "Servers" }}>New server</PageTitle>
+      <PageTitle description="Run a server type, a Modrinth modpack, or a CurseForge pack.">New server</PageTitle>
       <form onSubmit={submit} className="space-y-6">
         <Card title="1. What do you want to run?">
           <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
