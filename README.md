@@ -25,7 +25,7 @@ minectl exec survival "say Hello"
 ## Requirements
 
 - **Docker** — Engine 20.x+ running (e.g. `docker ps` works).
-- **Go 1.23+** — only if building from source.
+- **Go 1.26+** — only if building from source.
 
 ## Install
 
@@ -61,7 +61,7 @@ minectl list
 **Firewall:** open TCP port **25565** so players can connect (e.g. Hetzner Cloud Firewall, or `sudo ufw allow 25565 && sudo ufw reload`).
 
 To skip Docker install (you already have it): `MINECTL_SKIP_DOCKER=1 curl -sSL ... | bash`  
-To pin version: `MINECTL_VERSION=v0.1.0 curl -sSL ... | bash`
+To pin version: `MINECTL_VERSION=v2.0.0 curl -sSL ... | bash`
 
 ## Web panel
 

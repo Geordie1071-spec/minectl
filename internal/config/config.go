@@ -7,8 +7,11 @@ import (
 	"runtime"
 )
 
+// Version is set at release time with
+// -ldflags "-X github.com/Geordie1071-spec/minectl/internal/config.Version=...".
+var Version = "2.0.0-dev"
+
 const (
-	Version                = "0.1.0"
 	DefaultMemoryMB        = 2048
 	DefaultBackupRetention = 7
 	MinecraftImage         = "itzg/minecraft-server"
