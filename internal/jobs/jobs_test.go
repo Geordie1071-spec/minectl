@@ -97,9 +97,7 @@ func TestJobFailureAndPanic(t *testing.T) {
 		return "", errors.New("boom")
 	})
 	b, _ := r.Start("upgrade", "b", 0, func(context.Context, service.Events) (string, error) {
-		var m map[string]int
-		m["x"] = 1
-		return "", nil
+		panic("boom")
 	})
 	r.Wait()
 	for id, want := range map[string]string{a.ID: "boom", b.ID: "internal error"} {

@@ -55,7 +55,7 @@ func TestTokens(t *testing.T) {
 	if !strings.HasPrefix(NewAPIToken(), APITokenPrefix) {
 		t.Fatal("api token prefix missing")
 	}
-	if HashToken(a) != HashToken(a) || HashToken(a) == HashToken(b) {
+	if h := HashToken(a); h != HashToken(strings.Clone(a)) || h == HashToken(b) {
 		t.Fatal("hash not deterministic or collides")
 	}
 }
