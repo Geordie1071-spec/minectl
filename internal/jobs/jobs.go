@@ -122,11 +122,12 @@ func (r *Runner) run(j *job, fn Func) {
 		j.rec.Status = domain.JobSucceeded
 		j.appendLocked(EventDone, 0, msg)
 	}
-	j.done = true
 	rec := j.rec
 	rec.Events = append([]domain.JobEvent(nil), j.rec.Events...)
 	j.mu.Unlock()
 
+	// Save and release the server before followers are told the job is
+	// over, so a client can start the next job as soon as it sees the end.
 	if err := r.st.FinishJob(&rec); err != nil {
 		log.Printf("save job %s: %v", rec.ID, err)
 	}
@@ -136,6 +137,11 @@ func (r *Runner) run(j *job, fn Func) {
 		delete(r.byServer, rec.Server)
 	}
 	r.mu.Unlock()
+
+	j.mu.Lock()
+	j.done = true
+	j.notifyLocked()
+	j.mu.Unlock()
 }
 
 // Wait blocks until every running job has finished.
