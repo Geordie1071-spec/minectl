@@ -3,13 +3,15 @@ package docker
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -33,7 +35,7 @@ func (c *Client) CreateMinecraftContainer(ctx context.Context, s *domain.Server,
 	imageRef := config.MinecraftImage + ":" + tag
 	cfg := &container.Config{
 		Image:        imageRef,
-		Env:          env,
+		Env:          withHostUser(env),
 		ExposedPorts: exposedPorts,
 	}
 
@@ -43,16 +45,10 @@ func (c *Client) CreateMinecraftContainer(ctx context.Context, s *domain.Server,
 			Name: "unless-stopped",
 		},
 		Resources: container.Resources{
-			Memory:   int64(s.MemoryMB) * 1024 * 1024,
+			Memory:   int64(ContainerMemoryMB(s.MemoryMB)) * 1024 * 1024,
 			NanoCPUs: int64(s.CPUCores * 1e9),
 		},
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: s.DataDir,
-				Target: "/data",
-			},
-		},
+		Binds: []string{s.DataDir + ":/data:z"},
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, cfg, hostCfg, nil, nil, containerName)
@@ -60,6 +56,42 @@ func (c *Client) CreateMinecraftContainer(ctx context.Context, s *domain.Server,
 		return "", err
 	}
 	return resp.ID, nil
+}
+
+func (c *Client) CreateSetupContainer(ctx context.Context, name, imageRef, dataDir string, env []string) (string, error) {
+	cfg := &container.Config{Image: imageRef, Env: withHostUser(append(env, "SETUP_ONLY=true"))}
+	hostCfg := &container.HostConfig{Binds: []string{dataDir + ":/data:z"}}
+	resp, err := c.cli.ContainerCreate(ctx, cfg, hostCfg, nil, nil, config.ContainerNamePrefix+name+"-setup")
+	if err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func (c *Client) WaitContainer(ctx context.Context, containerID string) (int64, error) {
+	statusCh, errCh := c.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
+	select {
+	case st := <-statusCh:
+		return st.StatusCode, nil
+	case err := <-errCh:
+		return -1, err
+	}
+}
+
+func withHostUser(env []string) []string {
+	uid, gid := os.Getuid(), os.Getgid()
+	if uid <= 0 || gid < 0 {
+		return env
+	}
+	return append(env, "UID="+strconv.Itoa(uid), "GID="+strconv.Itoa(gid))
+}
+
+func ContainerMemoryMB(heapMB int) int {
+	overhead := heapMB / 4
+	if overhead < 512 {
+		overhead = 512
+	}
+	return heapMB + overhead
 }
 
 func (c *Client) StartContainer(ctx context.Context, containerID string) error {
@@ -113,6 +145,17 @@ func (c *Client) ListContainers(ctx context.Context) ([]string, error) {
 		}
 	}
 	return ids, nil
+}
+
+func (c *Client) ContainerState(ctx context.Context, containerID string) (running bool, exists bool, err error) {
+	inspect, err := c.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, false, nil
+		}
+		return false, false, err
+	}
+	return inspect.State.Running, true, nil
 }
 
 func (c *Client) ContainerRunning(ctx context.Context, containerID string) (bool, error) {

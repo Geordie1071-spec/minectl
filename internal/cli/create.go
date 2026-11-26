@@ -3,15 +3,19 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
+	"github.com/Geordie1071-spec/minectl/internal/docker"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
 	"github.com/Geordie1071-spec/minectl/internal/modrinth"
 	"github.com/Geordie1071-spec/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -20,12 +24,15 @@ var (
 	createType           string
 	createVersion        string
 	createMemory         string
-	createCPU            float64
+	createCPU            string
+	createPlayers        int
+	createMods           int
 	createPort           int
 	createDataDir        string
 	createNoStart        bool
 	createModpack        string
 	createModpackVersion string
+	createCurseForge     string
 )
 
 var createCmd = &cobra.Command{
@@ -37,23 +44,28 @@ var createCmd = &cobra.Command{
 func init() {
 	createCmd.Flags().StringVarP(&createName, "name", "n", "", "server name (required)")
 	createCmd.Flags().StringVarP(&createType, "type", "t", "paper", "server type: vanilla, paper, spigot, fabric, forge, neoforge, quilt")
-	createCmd.Flags().StringVarP(&createVersion, "version", "v", "latest", "Minecraft version (e.g. 1.21.1)")
-	createCmd.Flags().StringVarP(&createMemory, "memory", "m", "2G", "RAM allocation (e.g. 2G, 4G, 512M)")
-	createCmd.Flags().Float64Var(&createCPU, "cpu", 1.0, "CPU core limit")
+	createCmd.Flags().StringVarP(&createVersion, "version", "v", "latest", "Minecraft version (e.g. 26.3, 1.21.1)")
+	createCmd.Flags().StringVarP(&createMemory, "memory", "m", "auto", "RAM for the server (e.g. 4G, 512M), or auto to recommend from players and mods")
+	createCmd.Flags().StringVar(&createCPU, "cpu", "auto", "CPU core limit (e.g. 2, 1.5), auto, or none for no limit")
+	createCmd.Flags().IntVar(&createPlayers, "players", 5, "expected number of players at once (used by auto memory)")
+	createCmd.Flags().IntVar(&createMods, "mods", 0, "expected number of mods you will add (used by auto memory; modpacks are counted automatically)")
 	createCmd.Flags().IntVarP(&createPort, "port", "p", config.MinecraftPort, "host port to bind")
 	createCmd.Flags().StringVar(&createDataDir, "data-dir", "", "directory for world data")
 	createCmd.Flags().BoolVar(&createNoStart, "no-start", false, "create config only, do not start container")
-	createCmd.Flags().StringVar(&createModpack, "modpack", "", "Modrinth modpack slug (e.g. all-of-fabric-6)")
-	createCmd.Flags().StringVar(&createModpackVersion, "modpack-version", "", "modpack version ID (omit for latest)")
+	createCmd.Flags().StringVar(&createModpack, "modpack", "", "Modrinth modpack slug (e.g. into-the-backrooms-found-footage)")
+	createCmd.Flags().StringVar(&createModpackVersion, "modpack-version", "", "modpack version ID or number (Modrinth), or file ID (CurseForge); omit for latest")
+	createCmd.Flags().StringVar(&createCurseForge, "curseforge", "", "CurseForge modpack slug or page URL")
+	createCmd.MarkFlagsMutuallyExclusive("modpack", "curseforge")
 	_ = createCmd.MarkFlagRequired("name")
 }
 
 func parseMemory(s string) (int, error) {
+	in := s
 	s = strings.TrimSpace(strings.ToUpper(s))
 	if s == "" {
 		return config.DefaultMemoryMB, nil
 	}
-	var mult int = 1024
+	mult := 0
 	if strings.HasSuffix(s, "G") {
 		mult = 1024
 		s = strings.TrimSuffix(s, "G")
@@ -62,18 +74,26 @@ func parseMemory(s string) (int, error) {
 		s = strings.TrimSuffix(s, "M")
 	}
 	n, err := strconv.Atoi(s)
-	if err != nil {
-		return 0, fmt.Errorf("invalid memory: %s", createMemory)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("invalid memory: %s (use e.g. 4G or 4096M)", in)
+	}
+	if mult == 0 {
+		mult = 1
+		if n <= 64 {
+			mult = 1024
+		}
 	}
 	return n * mult, nil
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
-	memMB, err := parseMemory(createMemory)
-	if err != nil {
-		return err
+	switch createType {
+	case domain.TypeVanilla, domain.TypePaper, domain.TypeSpigot, domain.TypeFabric, domain.TypeForge, domain.TypeNeoForge, domain.TypeQuilt:
+	default:
+		return fmt.Errorf("invalid type %q; use: vanilla, paper, spigot, fabric, forge, neoforge, quilt", createType)
 	}
-	ctx := context.Background()
+	ctx, cancel := signalContext()
+	defer cancel()
 	d, err := getDockerClient(ctx)
 	if err != nil {
 		return err
@@ -83,74 +103,98 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	version := createVersion
 	modpackVersion := createModpackVersion
+	mods := createMods
 	if createModpack != "" {
-		mc := modrinth.NewClient()
-
-		typeFlagChanged := cmd.Flags().Changed("type")
 		loader := ""
-		if typeFlagChanged {
-			loader = modrinth.NormalizeLoader(createType)
-			if loader == "" {
+		if cmd.Flags().Changed("type") {
+			if modrinth.NormalizeLoader(createType) == "" {
 				return fmt.Errorf("modpack requires a mod loader (use --type fabric, forge, neoforge, or quilt), not %q", createType)
 			}
-		} else {
-			inferredType, err := inferModpackServerType(mc, createModpack, createVersion)
-			if err != nil {
-				return fmt.Errorf("infer mod loader for modpack %q: %w", createModpack, err)
-			}
-			createType = inferredType
-			loader = modrinth.NormalizeLoader(createType)
-			if loader == "" {
-				return fmt.Errorf("inferred mod loader is invalid: %q", createType)
-			}
-			if !quiet {
-				fmt.Println("Inferred mod loader from modpack:", createType)
-			}
+			loader = createType
 		}
+		mc := modrinth.NewClient()
+		rel, err := mc.ResolveModpack(createModpack, loader, createVersion, createModpackVersion)
+		if err != nil {
+			return err
+		}
+		createType, version, modpackVersion = rel.Loader, rel.MCVersion, rel.VersionID
+		if n, err := mc.CountModpackMods(rel.FileURL); err == nil {
+			mods = n
+		} else if !quiet {
+			fmt.Fprintf(os.Stderr, "Warning: could not count mods in modpack: %v\n", err)
+		}
+		if !quiet && !jsonOut {
+			fmt.Printf("Modpack: %s %s (%s, Minecraft %s, %d server mods)\n", rel.Slug, rel.VersionNumber, rel.Loader, rel.MCVersion, mods)
+		}
+	}
 
-		if createVersion == "" || strings.ToLower(createVersion) == "latest" {
-			info, err := mc.GetModpackRecommendedVersion(createModpack, loader)
-			if err != nil {
-				return fmt.Errorf("modpack version: %w", err)
-			}
-			version = info.MCVersion
-			modpackVersion = info.ModpackVersionID
-			if !quiet {
-				fmt.Println("Using modpack-compatible Minecraft version:", version)
-			}
-		} else {
-			ok, err := mc.ModpackSupportsVersion(createModpack, createVersion, loader)
-			if err != nil && !quiet {
-				fmt.Fprintf(os.Stderr, "Warning: could not check modpack compatibility: %v\n", err)
-			} else if !ok && !quiet {
-				fmt.Fprintf(os.Stderr, "Warning: Minecraft version %s may not be compatible with modpack %q. Omit --version to use the modpack's recommended version.\n", createVersion, createModpack)
-			}
+	port := createPort
+	if !cmd.Flags().Changed("port") {
+		port = nextFreePort(st, createPort)
+	}
+
+	modpackID, modpackSource, dataDir := createModpack, "", createDataDir
+	if createCurseForge != "" {
+		dataDir, err = server.DataDirFor(st, createName, createDataDir)
+		if err != nil {
+			return err
 		}
+		pack, err := installCurseForge(ctx, d, st, dataDir)
+		if err != nil {
+			return err
+		}
+		modpackID, modpackSource = createCurseForge, "curseforge"
+		createType, version, modpackVersion = pack.MCType, pack.MCVersion, createModpackVersion
+		if !cmd.Flags().Changed("mods") {
+			mods = pack.Mods
+		}
+		if !quiet && !jsonOut {
+			fmt.Printf("Modpack: %s %s (%s, Minecraft %s, %d mods)\n", pack.Name, pack.PackVersion, pack.MCType, pack.MCVersion, pack.Mods)
+		}
+	}
+
+	plan, err := planResources(ctx, d, st, createType, createPlayers, mods, createMemory, createCPU)
+	if err != nil {
+		return err
+	}
+	if !quiet && !jsonOut {
+		plan.print()
 	}
 
 	opts := server.CreateOptions{
 		Name:           createName,
 		MCType:         createType,
 		Version:        version,
-		MemoryMB:       memMB,
-		CPUCores:       createCPU,
-		Port:           createPort,
-		DataDir:        createDataDir,
+		MemoryMB:       plan.MemoryMB,
+		CPUCores:       plan.CPUCores,
+		Port:           port,
+		DataDir:        dataDir,
 		NoStart:        createNoStart,
-		ModpackID:      createModpack,
+		ModpackID:      modpackID,
+		ModpackSource:  modpackSource,
 		ModpackVersion: modpackVersion,
 	}
 
-	switch createType {
-	case domain.TypeVanilla, domain.TypePaper, domain.TypeSpigot, domain.TypeFabric, domain.TypeForge, domain.TypeNeoForge, domain.TypeQuilt:
-	default:
-		return fmt.Errorf("invalid type %q; use: vanilla, paper, spigot, fabric, forge, neoforge, quilt", createType)
+	var pb *ProgressBar
+	if !quiet && !jsonOut {
+		pb = NewProgressBar("")
+		opts.OnProgress = pb.ServerProgress()
 	}
-
-	var s *domain.Server
-	s, err = server.Create(ctx, d, st, opts)
+	s, err := server.Create(ctx, d, st, opts)
+	if pb != nil {
+		pb.End()
+	}
 	if err != nil {
 		return err
+	}
+	if s.Status == domain.StatusRunning && !noWait {
+		if err := waitForReady(ctx, d, s, s.LastStartedAt); err != nil {
+			if isStartFailed(err) {
+				_ = server.AbortCreate(context.Background(), d, st, s.Name)
+				return fmt.Errorf("%w\n\nRemoved the failed server %q so it doesn't keep restarting (its folder %s was kept). Fix the problem and run create again.", err, s.Name, s.DataDir)
+			}
+			return err
+		}
 	}
 	if jsonOut {
 		return printJSON(s)
@@ -169,59 +213,64 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func mapModrinthLoaderToServerType(loader string) string {
-	switch strings.ToLower(loader) {
-	case "fabric":
-		return domain.TypeFabric
-	case "forge":
-		return domain.TypeForge
-	case "neoforge":
-		return domain.TypeNeoForge
-	case "quilt":
-		return domain.TypeQuilt
-	default:
-		return ""
+func installCurseForge(ctx context.Context, d *docker.Client, st *store.Store, dataDir string) (*server.CurseForgePack, error) {
+	var pb *ProgressBar
+	var sp *spinner
+	onPercent := func(int) {}
+	var onLine func(string)
+	if !quiet && !jsonOut {
+		pb = NewProgressBar("")
+		onPercent = func(p int) { pb.Callback(p, "downloading Java image") }
 	}
+	start := func() {
+		if pb != nil && sp == nil {
+			pb.End()
+			sp = startSpinner("Installing modpack")
+		}
+	}
+	if pb != nil {
+		onLine = func(line string) {
+			start()
+			sp.setDetail(logPrefix.ReplaceAllString(strings.TrimSpace(line), ""))
+		}
+	}
+	pack, err := server.InstallCurseForgePack(ctx, d, st, createName, dataDir, createCurseForge, createModpackVersion, onPercent, onLine)
+	if sp != nil {
+		took := sp.end()
+		if err == nil {
+			fmt.Printf("Modpack installed in %s\n", took)
+		}
+	} else if pb != nil {
+		pb.End()
+	}
+	var setupErr *server.SetupError
+	if !errors.As(err, &setupErr) {
+		return pack, err
+	}
+	msg := "the modpack failed to install"
+	if hint := server.DescribeStartFailure(setupErr.Logs); hint != "" {
+		msg += ": " + hint
+	}
+	if summary := server.FailureSummary(setupErr.Logs); len(summary) > 0 {
+		msg += "\n\nKey log lines:\n  " + strings.Join(summary, "\n  ")
+	}
+	if server.NeedsManualDownloads(setupErr.Logs) {
+		msg += fmt.Sprintf("\n\nSave those files into %s, then run the same create command again.", filepath.Join(dataDir, server.CurseForgeDownloadsDir))
+	}
+	return nil, errors.New(msg)
 }
 
-func inferModpackServerType(mc *modrinth.Client, modpackSlug, requestedVersion string) (string, error) {
-	versions, err := mc.GetModpackVersions(modpackSlug, "")
-	if err != nil {
-		return "", err
+func nextFreePort(st *store.Store, start int) int {
+	servers, _ := st.ListServers()
+	used := map[int]bool{}
+	for _, s := range servers {
+		used[s.Port] = true
 	}
-	if len(versions) == 0 {
-		return "", fmt.Errorf("no versions found")
-	}
-
-	var chosen modrinth.ModpackVersion
-	if requestedVersion == "" || strings.ToLower(requestedVersion) == "latest" {
-		chosen = versions[0]
-	} else {
-		found := false
-		for _, v := range versions {
-			for _, gv := range v.GameVersions {
-				if gv == requestedVersion {
-					chosen = v
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			return "", fmt.Errorf("no modpack version found for Minecraft %q", requestedVersion)
+	for p := start; ; p++ {
+		if !used[p] {
+			return p
 		}
 	}
-
-	for _, l := range chosen.Loaders {
-		if serverType := mapModrinthLoaderToServerType(l); serverType != "" {
-			return serverType, nil
-		}
-	}
-
-	return "", fmt.Errorf("modpack version has no supported loaders")
 }
 
 func printJSON(v interface{}) error {

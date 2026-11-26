@@ -76,27 +76,28 @@ type Config struct {
 	AutoBackupIntervalHours int    `json:"auto_backup_interval_hours"`
 }
 
-func (s *Server) EnabledModURLs() []string {
-	var urls []string
+func (s *Server) EnabledModrinthProjects() []string {
+	var projects []string
 	for _, m := range s.Mods {
-		if m.Enabled && m.DownloadURL != "" {
-			urls = append(urls, m.DownloadURL)
+		if m.Enabled && m.Source == "modrinth" && m.ModID != "" {
+			p := m.ModID
+			if m.VersionID != "" {
+				p += ":" + m.VersionID
+			}
+			projects = append(projects, p)
 		}
 	}
-	return urls
+	return projects
 }
 
-func (s *Server) ResolvedModpackURL() string {
-	if s.ModpackSource == nil || *s.ModpackSource != "modrinth" || s.ModpackID == nil {
-		return ""
-	}
-	id := *s.ModpackID
-	ver := ""
-	if s.ModpackVersion != nil {
-		ver = *s.ModpackVersion
-	}
-	if ver != "" {
-		return "https://api.modrinth.com/v2/project/" + id + "/version/" + ver
-	}
-	return "https://api.modrinth.com/v2/project/" + id
+func (s *Server) HasCurseForgeModpack() bool {
+	return s.ModpackSource != nil && *s.ModpackSource == "curseforge" && s.ModpackID != nil && *s.ModpackID != ""
+}
+
+func (s *Server) HasModpack() bool {
+	return s.HasModrinthModpack() || s.HasCurseForgeModpack()
+}
+
+func (s *Server) HasModrinthModpack() bool {
+	return s.ModpackSource != nil && *s.ModpackSource == "modrinth" && s.ModpackID != nil && *s.ModpackID != ""
 }

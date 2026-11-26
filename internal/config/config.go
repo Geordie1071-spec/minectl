@@ -22,8 +22,11 @@ func ImageTagForMCVersion(mcVersion, mcType string) string {
 	if major == 0 {
 		return "latest"
 	}
+	if major >= 26 {
+		return "java25"
+	}
 	if major != 1 {
-		return "java17"
+		return "latest"
 	}
 	switch {
 	case minor <= 16:

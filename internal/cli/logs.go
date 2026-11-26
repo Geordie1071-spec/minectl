@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -27,7 +27,8 @@ func init() {
 
 func runLogs(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	ctx := context.Background()
+	ctx, cancel := signalContext()
+	defer cancel()
 	d, err := getDockerClient(ctx)
 	if err != nil {
 		return err
@@ -38,24 +39,36 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	if err != nil || s == nil {
 		return fmt.Errorf("server not found: %s", name)
 	}
-	lines, err := d.GetLogs(ctx, s.ContainerID, logsTail)
-	if err != nil {
+	if s.ContainerID == "" {
+		return fmt.Errorf("%s has no container yet; start it with: minectl start %s", name, name)
+	}
+	if !logsFollow {
+		lines, err := d.GetLogs(ctx, s.ContainerID, logsTail)
+		if err != nil {
+			return err
+		}
+		for _, l := range filterLogLines(lines, logsFilter) {
+			fmt.Println(l)
+		}
+		return nil
+	}
+
+	ch := make(chan string, 50)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.FollowLogs(ctx, s.ContainerID, logsTail, ch)
+		close(ch)
+	}()
+	for line := range ch {
+		if logsFilter == "" || strings.Contains(line, logsFilter) {
+			fmt.Println(line)
+		}
+	}
+	if err := <-errCh; err != nil && ctx.Err() == nil {
 		return err
 	}
-	lines = filterLogLines(lines, logsFilter)
-	for _, l := range lines {
-		fmt.Println(l)
-	}
-	if logsFollow {
-		ch := make(chan string, 50)
-		go func() {
-			_ = d.StreamLogs(ctx, s.ContainerID, true, ch)
-		}()
-		for line := range ch {
-			if logsFilter == "" || strings.Contains(line, logsFilter) {
-				fmt.Println(line)
-			}
-		}
+	if ctx.Err() == nil && !quiet {
+		fmt.Fprintf(os.Stderr, "%s stopped; log stream ended.\n", name)
 	}
 	return nil
 }

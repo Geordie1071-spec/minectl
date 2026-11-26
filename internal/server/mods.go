@@ -16,7 +16,7 @@ func AddMod(ctx context.Context, st *store.Store, name, modIDOrSlug, version str
 	if err != nil || s == nil {
 		return nil, fmt.Errorf("server not found: %s", name)
 	}
-	if s.ModsLocked {
+	if s.ModsLocked || s.HasModpack() {
 		return nil, fmt.Errorf("server uses a modpack; cannot add individual mods")
 	}
 	for _, existing := range s.Mods {
@@ -60,4 +60,18 @@ func AddMod(ctx context.Context, st *store.Store, name, modIDOrSlug, version str
 	}
 	s.Mods = append(s.Mods, mod)
 	return &mod, st.SaveServer(s)
+}
+
+func RemoveMod(st *store.Store, name, modIDOrSlug string) (*domain.Mod, error) {
+	s, err := st.GetServer(name)
+	if err != nil || s == nil {
+		return nil, fmt.Errorf("server not found: %s", name)
+	}
+	for i, m := range s.Mods {
+		if m.ModID == modIDOrSlug || m.ID == modIDOrSlug {
+			s.Mods = append(s.Mods[:i], s.Mods[i+1:]...)
+			return &m, st.SaveServer(s)
+		}
+	}
+	return nil, fmt.Errorf("mod not installed on %s: %s", name, modIDOrSlug)
 }

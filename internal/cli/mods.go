@@ -7,6 +7,7 @@ import (
 
 	"github.com/Geordie1071-spec/minectl/internal/modrinth"
 	"github.com/Geordie1071-spec/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +20,14 @@ var (
 
 var modsCmd = &cobra.Command{
 	Use:   "mods",
-	Short: "Add, list, remove, enable, or disable mods",
+	Short: "Add, list, or remove mods",
+}
+
+var modsRemoveCmd = &cobra.Command{
+	Use:   "remove [name] [mod-slug]",
+	Short: "Remove a mod",
+	Args:  cobra.ExactArgs(2),
+	RunE:  runModsRemove,
 }
 
 var modsAddCmd = &cobra.Command{
@@ -49,23 +57,45 @@ func init() {
 	modsSearchCmd.Flags().StringVar(&modsSearchSrv, "server", "", "filter by this server's MC version and loader")
 	modsSearchCmd.Flags().StringVar(&modsSearchVer, "version", "", "Minecraft version to filter (e.g. 1.21.1)")
 	modsSearchCmd.Flags().StringVar(&modsSearchLoad, "loader", "", "loader to filter: fabric, forge, quilt")
-	modsCmd.AddCommand(modsAddCmd, modsListCmd, modsSearchCmd)
+	modsCmd.AddCommand(modsAddCmd, modsListCmd, modsRemoveCmd, modsSearchCmd)
 }
 
 func runModsAdd(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := signalContext()
+	defer cancel()
 	st := getStore()
-	if !quiet {
-		fmt.Fprintln(os.Stderr, "Warning: individual mods can conflict; prefer a modpack when possible.")
-	}
 	mod, err := server.AddMod(ctx, st, args[0], args[1], modsVersion)
 	if err != nil {
 		return err
 	}
 	if !quiet {
-		fmt.Println("Mod added:", mod.ModName)
+		fmt.Println("Mod added:", mod.ModName, "(required dependencies are installed automatically)")
 	}
-	return nil
+	return applyModChange(ctx, st, args[0])
+}
+
+func runModsRemove(cmd *cobra.Command, args []string) error {
+	ctx, cancel := signalContext()
+	defer cancel()
+	st := getStore()
+	mod, err := server.RemoveMod(st, args[0], args[1])
+	if err != nil {
+		return err
+	}
+	if !quiet {
+		fmt.Println("Mod removed:", mod.ModName)
+	}
+	return applyModChange(ctx, st, args[0])
+}
+
+func applyModChange(ctx context.Context, st *store.Store, name string) error {
+	d, err := getDockerClient(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Saved, but Docker isn't reachable; the change applies the next time the container is recreated.")
+		return nil
+	}
+	defer d.Close()
+	return applyServerChange(ctx, d, st, name)
 }
 
 func runModsList(cmd *cobra.Command, args []string) error {

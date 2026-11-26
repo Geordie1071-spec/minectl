@@ -17,7 +17,8 @@ var restartCmd = &cobra.Command{
 
 func runRestart(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	ctx := context.Background()
+	ctx, cancel := signalContext()
+	defer cancel()
 	d, err := getDockerClient(ctx)
 	if err != nil {
 		return err
@@ -25,10 +26,23 @@ func runRestart(cmd *cobra.Command, args []string) error {
 	defer d.Close()
 	st := getStore()
 	pb := NewProgressBar("")
-	defer pb.End()
-
-	if err := server.Restart(ctx, d, st, name, pb.ServerProgress()); err != nil {
+	err = server.Restart(ctx, d, st, name, pb.ServerProgress())
+	pb.End()
+	if err != nil {
 		return err
+	}
+	if !noWait {
+		s, err := st.GetServer(name)
+		if err != nil || s == nil {
+			return fmt.Errorf("server not found: %s", name)
+		}
+		if err := waitForReady(ctx, d, s, s.LastStartedAt); err != nil {
+			if isStartFailed(err) {
+				_ = server.Halt(context.Background(), d, st, s.Name)
+				return fmt.Errorf("%w\n\nStopped %s so it doesn't keep restarting.", err, s.Name)
+			}
+			return err
+		}
 	}
 	if !quiet {
 		fmt.Println("Restarted", name)

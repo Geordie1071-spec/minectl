@@ -1,30 +1,51 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
+	"github.com/Geordie1071-spec/minectl/internal/docker"
 	"github.com/Geordie1071-spec/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
-var deletePurge bool
+var (
+	deletePurge bool
+	deleteAll   bool
+	deleteYes   bool
+)
 
 var deleteCmd = &cobra.Command{
-	Use:   "delete [name]",
-	Short: "Delete a server (container removed; world data kept unless --purge)",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runDelete,
+	Use:   "delete [name] | --all",
+	Short: "Delete a server, or all servers (container removed; world data kept unless --purge)",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if deleteAll && len(args) > 0 {
+			return errors.New("pass a server name or --all, not both")
+		}
+		if !deleteAll && len(args) != 1 {
+			return errors.New("pass a server name, or --all to delete every server")
+		}
+		return nil
+	},
+	RunE: runDelete,
 }
 
 func init() {
-	deleteCmd.Flags().BoolVar(&deletePurge, "purge", false, "also delete world files (irreversible)")
+	deleteCmd.Flags().BoolVar(&deletePurge, "purge", false, "also delete world files and backups (irreversible)")
+	deleteCmd.Flags().BoolVar(&deleteAll, "all", false, "delete every server")
+	deleteCmd.Flags().BoolVarP(&deleteYes, "yes", "y", false, "don't ask for confirmation with --all")
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
-	name := args[0]
-	ctx := context.Background()
+	ctx, cancel := signalContext()
+	defer cancel()
 	d, err := getDockerClient(ctx)
 	if err != nil {
 		return err
@@ -32,10 +53,57 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	defer d.Close()
 	st := getStore()
 
-	pb := NewProgressBar("")
-	defer pb.End()
+	if !deleteAll {
+		return deleteOne(ctx, d, st, args[0])
+	}
 
-	if err := server.Delete(ctx, d, st, name, deletePurge, pb.ServerProgress()); err != nil {
+	servers, err := st.ListServers()
+	if err != nil {
+		return err
+	}
+	if len(servers) == 0 {
+		if !quiet {
+			fmt.Println("No servers to delete.")
+		}
+		return nil
+	}
+	if !deleteYes {
+		names := make([]string, len(servers))
+		for i, s := range servers {
+			names[i] = s.Name
+		}
+		what := "their containers (world files are kept)"
+		if deletePurge {
+			what = "their containers, world files, and backups. This cannot be undone"
+		}
+		fmt.Fprintf(os.Stderr, "This deletes %d server(s): %s\nand %s.\n", len(servers), strings.Join(names, ", "), what)
+		ok, err := confirm(os.Stdin, "Type 'yes' to continue: ")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("aborted")
+		}
+	}
+
+	var failed []string
+	for _, s := range servers {
+		if err := deleteOne(ctx, d, st, s.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "Error deleting %s: %v\n", s.Name, err)
+			failed = append(failed, s.Name)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("could not delete: %s", strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+func deleteOne(ctx context.Context, d *docker.Client, st *store.Store, name string) error {
+	pb := NewProgressBar(name)
+	err := server.Delete(ctx, d, st, name, deletePurge, pb.ServerProgress())
+	pb.End()
+	if err != nil {
 		return err
 	}
 	if !quiet {
@@ -45,4 +113,16 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func confirm(in io.Reader, prompt string) (bool, error) {
+	if f, ok := in.(*os.File); ok && !term.IsTerminal(int(f.Fd())) {
+		return false, errors.New("refusing to delete all servers without a terminal to confirm; pass --yes")
+	}
+	fmt.Fprint(os.Stderr, prompt)
+	line, err := bufio.NewReader(in).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	return strings.EqualFold(strings.TrimSpace(line), "yes"), nil
 }

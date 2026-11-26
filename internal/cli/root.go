@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
 	"github.com/Geordie1071-spec/minectl/internal/docker"
@@ -17,12 +19,15 @@ var (
 	noColor   bool
 	jsonOut   bool
 	quiet     bool
+	noWait    bool
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "minectl",
-	Short: "Manage Minecraft servers on any Linux VPS using Docker",
-	Long:  `minectl creates and manages Minecraft servers (Paper, Fabric, Forge, etc.) via Docker. No cloud, no accounts — just your server.`,
+	Use:           "minectl",
+	Short:         "Manage Minecraft servers on any Linux VPS using Docker",
+	Long:          `minectl creates and manages Minecraft servers (Paper, Fabric, Forge, etc.) via Docker. No cloud, no accounts — just your server.`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 func Execute() error {
@@ -36,11 +41,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&jsonOut, "json", false, "output as JSON")
 	rootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "suppress non-error output")
 	_ = viper.BindPFlag("config_dir", rootCmd.PersistentFlags().Lookup("config"))
+	rootCmd.PersistentFlags().BoolVar(&noWait, "no-wait", false, "return once the container starts instead of waiting for Minecraft to be ready")
 	rootCmd.Version = config.Version
 
 	rootCmd.AddCommand(createCmd, listCmd, startCmd, stopCmd, restartCmd, deleteCmd)
 	rootCmd.AddCommand(execCmd, logsCmd, statsCmd)
-	rootCmd.AddCommand(backupCmd, modsCmd, modpackCmd, upgradeCmd)
+	rootCmd.AddCommand(backupCmd, modsCmd, modpackCmd, upgradeCmd, versionsCmd, resizeCmd, recommendCmd)
 }
 
 func initConfig() {
@@ -62,6 +68,10 @@ func getDockerClient(ctx context.Context) (*docker.Client, error) {
 		return nil, fmt.Errorf("Docker is not running or not accessible: %w", err)
 	}
 	return cli, nil
+}
+
+func signalContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 
 func getStore() *store.Store {

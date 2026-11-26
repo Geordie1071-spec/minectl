@@ -31,14 +31,28 @@ func Start(ctx context.Context, d *docker.Client, st *store.Store, name string, 
 	if err != nil || s == nil {
 		return nil, fmt.Errorf("server not found: %s", name)
 	}
+	if err := SyncStatus(ctx, d, st, s); err != nil {
+		return nil, err
+	}
 	if s.Status == domain.StatusRunning {
 		reportProgress(progress, 100, "already running")
 		return s, nil
 	}
-	if s.ContainerID == "" {
-		return nil, fmt.Errorf("server has no container; recreate with minectl create")
-	}
 	reportProgress(progress, 0, "starting")
+	if s.ContainerID == "" {
+		reportProgress(progress, 5, "recreating container")
+		if err := ensureImage(ctx, d, s, nil); err != nil {
+			return nil, err
+		}
+		containerID, err := d.CreateMinecraftContainer(ctx, s, BuildEnvVars(s))
+		if err != nil {
+			return nil, fmt.Errorf("recreate container: %w", err)
+		}
+		s.ContainerID = containerID
+		if err := st.SaveServer(s); err != nil {
+			return nil, err
+		}
+	}
 	if err := d.StartContainer(ctx, s.ContainerID); err != nil {
 		return nil, err
 	}
@@ -50,11 +64,7 @@ func Start(ctx context.Context, d *docker.Client, st *store.Store, name string, 
 		if running {
 			percent = 100
 		}
-		if running || i == waitTimeoutSec-1 {
-			reportProgress(progress, percent, "starting container")
-		} else {
-			reportProgress(progress, percent, "starting container")
-		}
+		reportProgress(progress, percent, "starting container")
 		if running {
 			break
 		}
@@ -75,6 +85,9 @@ func Stop(ctx context.Context, d *docker.Client, st *store.Store, name string, f
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
 		return fmt.Errorf("server not found: %s", name)
+	}
+	if err := SyncStatus(ctx, d, st, s); err != nil {
+		return err
 	}
 	if s.Status != domain.StatusRunning {
 		reportProgress(progress, 100, "already stopped")
@@ -162,39 +175,70 @@ func Delete(ctx context.Context, d *docker.Client, st *store.Store, name string,
 	return nil
 }
 
+func AbortCreate(ctx context.Context, d *docker.Client, st *store.Store, name string) error {
+	s, err := st.GetServer(name)
+	if err != nil || s == nil {
+		return fmt.Errorf("server not found: %s", name)
+	}
+	if s.ContainerID != "" {
+		_ = d.RemoveContainer(ctx, s.ContainerID)
+	}
+	return st.DeleteServer(name)
+}
+
+func Halt(ctx context.Context, d *docker.Client, st *store.Store, name string) error {
+	s, err := st.GetServer(name)
+	if err != nil || s == nil {
+		return fmt.Errorf("server not found: %s", name)
+	}
+	if s.ContainerID != "" {
+		t := 5
+		_ = d.StopContainer(ctx, s.ContainerID, &t)
+	}
+	s.Status = domain.StatusStopped
+	return st.SaveServer(s)
+}
+
 func removeAll(path string) error {
 	return os.RemoveAll(path)
 }
 
-func RecreateContainer(ctx context.Context, d *docker.Client, st *store.Store, name string, progress ProgressFunc) (*domain.Server, error) {
+func RecreateContainer(ctx context.Context, d *docker.Client, st *store.Store, name string) (bool, error) {
 	s, err := st.GetServer(name)
 	if err != nil || s == nil {
-		return nil, fmt.Errorf("server not found: %s", name)
+		return false, fmt.Errorf("server not found: %s", name)
 	}
-
-	_ = Stop(ctx, d, st, name, true, 15, nil)
-
+	if err := SyncStatus(ctx, d, st, s); err != nil {
+		return false, err
+	}
+	wasRunning := s.Status == domain.StatusRunning
+	if err := Stop(ctx, d, st, name, false, 30, nil); err != nil {
+		return false, err
+	}
+	s, err = st.GetServer(name)
+	if err != nil || s == nil {
+		return false, fmt.Errorf("server not found: %s", name)
+	}
 	if s.ContainerID != "" {
 		_ = d.RemoveContainer(ctx, s.ContainerID)
 		s.ContainerID = ""
-		if err := st.SaveServer(s); err != nil {
-			return nil, err
-		}
 	}
-
-	env := BuildEnvVars(s)
-	containerID, err := d.CreateMinecraftContainer(ctx, s, env)
+	if err := ensureImage(ctx, d, s, nil); err != nil {
+		return false, err
+	}
+	containerID, err := d.CreateMinecraftContainer(ctx, s, BuildEnvVars(s))
 	if err != nil {
-		return nil, fmt.Errorf("recreate container: %w", err)
+		_ = st.SaveServer(s)
+		return false, fmt.Errorf("recreate container: %w", err)
 	}
 	s.ContainerID = containerID
 	s.Status = domain.StatusStopped
 	if err := st.SaveServer(s); err != nil {
-		return nil, err
+		return false, err
 	}
-
-	if _, err := Start(ctx, d, st, name, nil); err != nil {
-		return nil, err
+	if !wasRunning {
+		return false, nil
 	}
-	return st.GetServer(name)
+	_, err = Start(ctx, d, st, name, nil)
+	return err == nil, err
 }

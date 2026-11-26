@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Geordie1071-spec/minectl/internal/server"
+	"golang.org/x/term"
 )
 
 type ProgressBar struct {
@@ -20,11 +21,16 @@ type ProgressBar struct {
 
 func NewProgressBar(prefix string) *ProgressBar {
 	return &ProgressBar{
-		last:   0,
-		done:   false,
-		width:  30,
-		prefix: strings.TrimSpace(prefix),
+		last:      0,
+		done:      !interactive(),
+		finalized: !interactive(),
+		width:     30,
+		prefix:    strings.TrimSpace(prefix),
 	}
+}
+
+func interactive() bool {
+	return !quiet && term.IsTerminal(int(os.Stderr.Fd()))
 }
 
 func (p *ProgressBar) End() {
@@ -74,14 +80,14 @@ func (p *ProgressBar) Callback(percent int, msg string) {
 	}
 
 	if percent >= 100 {
-		fmt.Fprintf(os.Stderr, "\r[%s] %3d%% %s", bar, percent, suffix)
+		fmt.Fprintf(os.Stderr, "\r\033[K[%s] %3d%% %s", bar, percent, suffix)
 		fmt.Fprintln(os.Stderr)
 		p.done = true
 		p.finalized = true
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "\r[%s] %3d%% %s", bar, percent, suffix)
+	fmt.Fprintf(os.Stderr, "\r\033[K[%s] %3d%% %s", bar, percent, suffix)
 }
 
 func (p *ProgressBar) ServerProgress() server.ProgressFunc {

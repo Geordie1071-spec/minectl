@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -42,12 +44,25 @@ func (c *Client) GetLogs(ctx context.Context, containerID string, tail int) ([]s
 }
 
 func (c *Client) StreamLogs(ctx context.Context, containerID string, follow bool, outCh chan<- string) error {
-	rdr, err := c.cli.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Follow:     follow,
-		Timestamps: false,
-	})
+	return c.streamLogs(ctx, containerID, types.ContainerLogsOptions{Follow: follow}, outCh)
+}
+
+func (c *Client) FollowLogs(ctx context.Context, containerID string, tail int, outCh chan<- string) error {
+	return c.streamLogs(ctx, containerID, types.ContainerLogsOptions{Follow: true, Tail: strconv.Itoa(tail)}, outCh)
+}
+
+func (c *Client) StreamLogsSince(ctx context.Context, containerID string, follow bool, since time.Time, outCh chan<- string) error {
+	opts := types.ContainerLogsOptions{Follow: follow}
+	if !since.IsZero() {
+		opts.Since = strconv.FormatInt(since.Unix(), 10)
+	}
+	return c.streamLogs(ctx, containerID, opts, outCh)
+}
+
+func (c *Client) streamLogs(ctx context.Context, containerID string, opts types.ContainerLogsOptions, outCh chan<- string) error {
+	opts.ShowStdout = true
+	opts.ShowStderr = true
+	rdr, err := c.cli.ContainerLogs(ctx, containerID, opts)
 	if err != nil {
 		return err
 	}

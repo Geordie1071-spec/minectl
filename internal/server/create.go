@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/Geordie1071-spec/minectl/internal/docker"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
 	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/versions"
 	"github.com/google/uuid"
 )
 
@@ -25,8 +25,9 @@ type CreateOptions struct {
 	DataDir        string
 	NoStart        bool
 	ModpackID      string
+	ModpackSource  string
 	ModpackVersion string
-	OnProgress     func(msg string)
+	OnProgress     ProgressFunc
 }
 
 func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateOptions) (*domain.Server, error) {
@@ -37,8 +38,8 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 	if opts.MemoryMB <= 0 {
 		opts.MemoryMB = cfg.DefaultMemoryMB
 	}
-	if opts.CPUCores <= 0 {
-		opts.CPUCores = 1.0
+	if opts.CPUCores < 0 {
+		opts.CPUCores = 0
 	}
 	if opts.Port <= 0 {
 		opts.Port = config.MinecraftPort
@@ -46,28 +47,46 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 	if opts.DataDir == "" {
 		opts.DataDir = filepath.Join(cfg.DefaultDataDir, opts.Name)
 	}
+	opts.DataDir, err = filepath.Abs(opts.DataDir)
+	if err != nil {
+		return nil, err
+	}
 	backupDir := filepath.Join(cfg.DefaultBackupDir, opts.Name)
 
 	existing, _ := st.GetServer(opts.Name)
 	if existing != nil {
-		return nil, fmt.Errorf("server already exists: %s", opts.Name)
+		if existing.Status != domain.StatusCreating || existing.ContainerID != "" {
+			return nil, fmt.Errorf("server already exists: %s", opts.Name)
+		}
+		if id, err := d.ContainerByName(ctx, opts.Name); err == nil {
+			_ = d.RemoveContainer(ctx, id)
+		}
 	}
 
-	if opts.OnProgress != nil {
-		opts.OnProgress("Preparing directories...")
+	report := func(percent int, msg string) { reportProgress(opts.OnProgress, percent, msg) }
+	report(0, "checking "+opts.MCType+" versions")
+	resolved, err := versions.NewClient().Resolve(opts.MCType, opts.Version)
+	if err != nil {
+		return nil, err
 	}
+	report(2, "preparing directories")
 	if err := os.MkdirAll(opts.DataDir, 0755); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return nil, fmt.Errorf("create backup dir: %w", err)
 	}
+	if opts.ModpackSource == "curseforge" {
+		if err := os.MkdirAll(filepath.Join(opts.DataDir, CurseForgeDownloadsDir), 0755); err != nil {
+			return nil, fmt.Errorf("create downloads dir: %w", err)
+		}
+	}
 
 	s := &domain.Server{
 		ID:         "srv_" + uuid.New().String()[:8],
 		Name:       opts.Name,
 		MCType:     opts.MCType,
-		MCVersion:  opts.Version,
+		MCVersion:  resolved.Version,
 		MemoryMB:   opts.MemoryMB,
 		CPUCores:   opts.CPUCores,
 		Port:       opts.Port,
@@ -78,44 +97,30 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 		ModsLocked: false,
 	}
 	if opts.ModpackID != "" {
-		source := "modrinth"
+		source := opts.ModpackSource
+		if source == "" {
+			source = "modrinth"
+		}
 		s.ModpackSource = &source
 		s.ModpackID = &opts.ModpackID
 		if opts.ModpackVersion != "" {
 			s.ModpackVersion = &opts.ModpackVersion
 		}
 	}
-	s.ImageTag = config.ImageTagForMCVersion(s.MCVersion, s.MCType)
-	if s.ImageTag == "" {
-		s.ImageTag = "latest"
-	}
+	s.ImageTag = resolved.ImageTag
 	s.CreatedAt = time.Now().UTC()
 
 	if err := st.SaveServer(s); err != nil {
 		return nil, err
 	}
 
-	imageRef := config.MinecraftImage + ":" + s.ImageTag
-	exists, err := d.ImageExists(ctx, imageRef)
-	if err != nil {
+	report(5, "checking image")
+	pull := func(percent int) { report(5+percent*85/100, "downloading "+config.MinecraftImage+":"+s.ImageTag) }
+	if err := ensureImage(ctx, d, s, pull); err != nil {
 		_ = st.DeleteServer(s.Name)
-		return nil, fmt.Errorf("check image: %w", err)
+		return nil, err
 	}
-	if !exists {
-		if opts.OnProgress != nil {
-			opts.OnProgress("Pulling Docker image " + imageRef + "...")
-		}
-		rc, err := d.PullImage(ctx, imageRef)
-		if err != nil {
-			_ = st.DeleteServer(s.Name)
-			return nil, fmt.Errorf("pull image %s: %w", imageRef, err)
-		}
-		_, _ = io.Copy(io.Discard, rc)
-		_ = rc.Close()
-	}
-	if opts.OnProgress != nil {
-		opts.OnProgress("Creating container...")
-	}
+	report(92, "creating container")
 
 	env := BuildEnvVars(s)
 	containerID, err := d.CreateMinecraftContainer(ctx, s, env)
@@ -129,10 +134,10 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 	}
 
 	if !opts.NoStart {
-		if opts.OnProgress != nil {
-			opts.OnProgress("Starting server...")
-		}
+		report(96, "starting container")
 		if err := d.StartContainer(ctx, containerID); err != nil {
+			s.Status = domain.StatusStopped
+			_ = st.SaveServer(s)
 			return nil, fmt.Errorf("start container: %w", err)
 		}
 		s.Status = domain.StatusRunning
@@ -146,8 +151,6 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 			return nil, err
 		}
 	}
-	if opts.OnProgress != nil {
-		opts.OnProgress("Done")
-	}
+	report(100, "container created")
 	return s, nil
 }
