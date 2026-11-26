@@ -82,7 +82,7 @@ To pin version: `MINECTL_VERSION=v0.1.0 curl -sSL ... | bash`
 ## Config and data
 
 - Config: `~/.minectl/` (or `MINECTL_CONFIG_DIR`).
-- Servers state: `~/.minectl/servers.json`.
+- Servers state and settings: `~/.minectl/minectl.db` (SQLite). Older `servers.json` / `config.json` files are imported automatically on first run and renamed to `*.migrated`.
 - World data: `/opt/minectl/servers/<name>` by default (configurable).
 
 ## Testing (Docker required)
