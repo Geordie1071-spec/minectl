@@ -36,7 +36,8 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByRole("button", { name: "Add user" }).click();
   await expect(page.getByText("friend", { exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "owner" }).click();
+  await page.getByRole("button", { name: /owner/ }).click();
+  await page.getByRole("menuitem", { name: "Account and API tokens" }).click();
   await page.getByLabel("Token name").fill("ci");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByText(/^mct_/)).toBeVisible();
@@ -44,7 +45,8 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByRole("link", { name: "Activity" }).click();
   await expect(page.getByText("user.create")).toBeVisible();
 
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: /owner/ }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
   await expect(page).toHaveURL(/\/login/);
   await page.getByLabel("Username").fill("friend");
   await page.getByLabel("Password").fill("wrong-password");

@@ -1,3 +1,4 @@
+import { typeLabels } from "./format";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 
 export function cx(...parts: (string | false | null | undefined)[]) {
@@ -7,9 +8,9 @@ export function cx(...parts: (string | false | null | undefined)[]) {
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent-hover",
-  secondary: "bg-surface border border-line hover:bg-surface-2",
-  danger: "bg-danger text-white hover:opacity-90",
+  primary: "bg-accent text-accent-fg shadow-sm shadow-accent/25 hover:bg-accent-hover",
+  secondary: "bg-surface border border-line shadow-card hover:bg-surface-2",
+  danger: "bg-danger text-white shadow-sm hover:opacity-90",
   ghost: "hover:bg-surface-2",
 };
 
@@ -24,7 +25,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         variants[variant],
         className,
       )}
@@ -47,7 +48,7 @@ export function Spinner({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 export const inputClass =
-  "rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted focus:border-accent focus:outline-none";
+  "rounded-lg border border-line bg-surface px-3 py-2 text-sm shadow-card placeholder:text-muted/70 focus:border-accent focus:ring-3 focus:ring-accent/15 focus:outline-none";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputClass, "w-full", props.className)} />;
@@ -72,14 +73,14 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 
 export function Card({ title, actions, children, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx("rounded-lg border border-line bg-surface", className)}>
+    <section className={cx("rounded-xl border border-line bg-surface shadow-card", className)}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
+        <header className="flex min-h-14 items-center justify-between gap-2 border-b border-line px-5 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>
           <div className="flex items-center gap-2">{actions}</div>
         </header>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
@@ -90,14 +91,20 @@ export function Alert({ kind = "error", children }: { kind?: "error" | "warn" | 
     warn: "bg-warn-soft text-warn border-warn/30",
     info: "bg-accent-soft text-fg border-accent/30",
   }[kind];
-  return <div className={cx("rounded-md border px-3 py-2 text-sm whitespace-pre-wrap break-words", styles)}>{children}</div>;
+  return <div className={cx("rounded-lg border px-3 py-2 text-sm whitespace-pre-wrap break-words", styles)}>{children}</div>;
 }
 
 const statusStyles: Record<string, string> = {
-  running: "bg-accent",
+  running: "bg-ok",
   creating: "bg-warn animate-pulse",
   stopped: "bg-muted/50",
   error: "bg-danger",
+};
+
+const badgeStyles: Record<string, string> = {
+  running: "bg-ok-soft text-ok",
+  creating: "bg-warn-soft text-warn",
+  error: "bg-danger-soft text-danger",
 };
 
 export function StatusDot({ status }: { status: string }) {
@@ -106,7 +113,12 @@ export function StatusDot({ status }: { status: string }) {
 
 export function StatusBadge({ status, busy }: { status: string; busy?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs font-medium">
+    <span
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+        busy ? "bg-accent-soft text-accent" : (badgeStyles[status] ?? "bg-surface-2 text-muted"),
+      )}
+    >
       {busy ? <Spinner className="h-3 w-3" /> : <StatusDot status={status} />}
       {busy ?? status}
     </span>
@@ -114,12 +126,12 @@ export function StatusBadge({ status, busy }: { status: string; busy?: string })
 }
 
 export function Badge({ children }: { children: ReactNode }) {
-  return <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-muted">{children}</span>;
+  return <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">{children}</span>;
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-line px-6 py-10 text-center">
+    <div className="rounded-xl border border-dashed border-line bg-surface/50 px-6 py-12 text-center">
       <p className="font-medium">{title}</p>
       {children && <div className="mt-2 text-sm text-muted">{children}</div>}
     </div>
@@ -156,10 +168,10 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
     <dialog
       ref={ref}
       onClose={onClose}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-lg border border-line bg-surface p-0 text-fg shadow-xl backdrop:bg-black/50"
+      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-0 text-fg shadow-pop backdrop:bg-slate-950/40 backdrop:backdrop-blur-sm"
     >
-      <div className="border-b border-line px-4 py-3 font-semibold">{title}</div>
-      <div className="p-4">{children}</div>
+      <div className="border-b border-line px-5 py-4 font-semibold">{title}</div>
+      <div className="p-5">{children}</div>
     </dialog>
   );
 }
@@ -191,3 +203,29 @@ export function Sparkline({ values, max }: { values: number[]; max: number }) {
     </svg>
   );
 }
+
+const typeTiles: Record<string, string> = {
+  paper: "from-[#4687ff] to-[#2c6bed]",
+  vanilla: "from-[#34c26b] to-[#16a34a]",
+  spigot: "from-[#f59e0b] to-[#d97706]",
+  fabric: "from-[#d6b98c] to-[#a8875a]",
+  forge: "from-[#64748b] to-[#334155]",
+  neoforge: "from-[#fb923c] to-[#ea580c]",
+  quilt: "from-[#a78bfa] to-[#7c3aed]",
+};
+
+export function TypeTile({ type, className = "h-10 w-10 text-sm" }: { type: string; className?: string }) {
+  return (
+    <span
+      className={cx(
+        "flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br font-semibold text-white shadow-sm",
+        className,
+        typeTiles[type] ?? typeTiles.paper,
+      )}
+      aria-hidden="true"
+    >
+      {(typeLabels[type] ?? type).slice(0, 1)}
+    </span>
+  );
+}
+

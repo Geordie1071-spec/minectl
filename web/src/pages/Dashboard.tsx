@@ -4,37 +4,58 @@ import { useMe, usePlayers, useServers } from "../hooks";
 import { PageTitle } from "../layout";
 import { joinAddress } from "../join";
 import { formatMB, typeLabels } from "../format";
-import { Alert, Badge, Button, CopyButton, Empty, Spinner, StatusBadge } from "../ui";
+import { Alert, Button, CopyButton, Empty, Spinner, StatusBadge, TypeTile } from "../ui";
+import { jobLabel } from "../JobView";
 
 function ServerCard({ s }: { s: Server }) {
   const running = s.status === "running" && !s.job;
   const players = usePlayers(s.name, running);
   const addr = joinAddress(s.port);
   return (
-    <div className="flex flex-col rounded-lg border border-line bg-surface transition-shadow hover:shadow-md">
-      <Link to={srv(s.name)} className="flex-1 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="truncate font-semibold">{s.name}</h2>
-          <StatusBadge status={s.status} busy={s.job ? `${s.job.kind}…` : undefined} />
+    <div className="group flex flex-col rounded-xl border border-line bg-surface shadow-card transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-pop">
+      <Link to={srv(s.name)} className="flex-1 p-5">
+        <div className="flex items-start gap-3">
+          <TypeTile type={s.type} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="truncate font-semibold group-hover:text-accent">{s.name}</h2>
+              <StatusBadge status={s.status} busy={s.job ? `${jobLabel(s.job.kind).toLowerCase()}…` : undefined} />
+            </div>
+            <p className="mt-0.5 truncate text-sm text-muted">
+              {s.modpack ? `${s.modpack.id} · ` : ""}
+              {typeLabels[s.type] ?? s.type} {s.version}
+            </p>
+          </div>
         </div>
-        <p className="mt-1 truncate text-sm text-muted">
-          {s.modpack ? s.modpack.id : `${typeLabels[s.type] ?? s.type} ${s.version}`}
-          {s.modpack && <span> · {typeLabels[s.type] ?? s.type} {s.version}</span>}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs">
-          <Badge>{formatMB(s.memory_mb)} RAM</Badge>
-          {running && players.data && (
-            <Badge>
-              {players.data.online}/{players.data.max} players
-            </Badge>
-          )}
-          {s.role !== "admin" && <Badge>{s.role}</Badge>}
-        </div>
+        <dl className="mt-5 grid grid-cols-3 gap-2 text-sm">
+          <div>
+            <dt className="text-xs text-muted">Players</dt>
+            <dd className="mt-0.5 font-medium">{running && players.data ? `${players.data.online}/${players.data.max}` : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">Memory</dt>
+            <dd className="mt-0.5 font-medium">{formatMB(s.memory_mb)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">Access</dt>
+            <dd className="mt-0.5 font-medium capitalize">{s.role}</dd>
+          </div>
+        </dl>
       </Link>
-      <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-2 text-sm">
+      <div className="flex items-center justify-between gap-2 rounded-b-xl border-t border-line bg-surface-2/60 px-5 py-2.5 text-sm">
         <code className="truncate text-muted">{addr}</code>
         <CopyButton text={addr} />
       </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-3 shadow-card sm:p-5">
+      <p className="truncate text-xs text-muted sm:text-sm">{label}</p>
+      <p className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">{value}</p>
+      {hint && <p className="mt-0.5 hidden text-xs text-muted sm:block">{hint}</p>}
     </div>
   );
 }
@@ -73,6 +94,17 @@ export function Dashboard() {
             "Ask an admin to give you access to a server."
           )}
         </Empty>
+      )}
+      {data && data.length > 0 && (
+        <div className="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
+          <Stat label="Servers" value={data.length} />
+          <Stat label="Running" value={data.filter((s) => s.status === "running").length} hint={`${data.filter((s) => s.status !== "running").length} stopped`} />
+          <Stat
+            label="Memory used"
+            value={formatMB(data.filter((s) => s.status === "running").reduce((n, s) => n + s.memory_mb, 0))}
+            hint="by running servers"
+          />
+        </div>
       )}
       {data && data.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

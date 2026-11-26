@@ -6,7 +6,7 @@ import { PageTitle } from "../../layout";
 import { joinAddress } from "../../join";
 import { isModded, typeLabels } from "../../format";
 import { JobBanner, jobLabel } from "../../JobView";
-import { Alert, Button, CopyButton, Spinner, StatusBadge, cx } from "../../ui";
+import { Alert, Button, CopyButton, Spinner, StatusBadge, TypeTile, cx } from "../../ui";
 import { Overview } from "./Overview";
 import { Console } from "./Console";
 import { PlayersTab } from "./Players";
@@ -100,6 +100,7 @@ export function ServerPage() {
         }
       >
         <span className="flex flex-wrap items-center gap-3">
+          <TypeTile type={s.type} className="h-9 w-9 text-sm" />
           {s.name}
           <StatusBadge status={s.status} busy={s.job ? `${jobLabel(s.job.kind).toLowerCase()}…` : undefined} />
         </span>

@@ -49,7 +49,7 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         {status === "running" && <Spinner className="h-5 w-5 text-accent" />}
-        {status === "succeeded" && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-accent-fg">✓</span>}
+        {status === "succeeded" && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ok text-xs text-white">✓</span>}
         {status === "failed" && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-white">!</span>}
         <div className="min-w-0">
           <p className="font-medium">
@@ -120,7 +120,7 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
 export function JobBanner({ id, onClose }: { id: string; onClose?: () => void }) {
   const { done, job } = useJobStream(id);
   return (
-    <div className={cx("rounded-lg border bg-surface p-4", done && job?.status === "failed" ? "border-danger/40" : "border-line")}>
+    <div className={cx("rounded-xl border bg-surface p-5 shadow-card", done && job?.status === "failed" ? "border-danger/40" : "border-line")}>
       <JobView id={id} compact />
       {done && onClose && (
         <div className="mt-3 flex justify-end">
