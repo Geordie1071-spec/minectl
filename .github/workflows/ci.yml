@@ -4,14 +4,101 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"; echo "$unformatted"; exit 1
+          fi
+      - name: go mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum || { echo "Run 'go mod tidy' and commit the result."; exit 1; }
+      - name: go vet
+        run: |
+          go vet ./...
+          go vet -tags e2e ./test/e2e/
+
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
-      - run: go mod tidy
-      - run: go vet ./...
-      - run: go test ./...
+          go-version-file: go.mod
+      - name: Unit tests
+        run: go test -race -coverprofile=coverage.out ./...
+      - name: Coverage summary
+        run: |
+          echo '### Coverage' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build ${{ matrix.target }}
+        run: |
+          GOOS=${TARGET%/*} GOARCH=${TARGET#*/} go build -o /dev/null ./cmd/minectl
+        env:
+          TARGET: ${{ matrix.target }}
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: End-to-end tests (real Docker + Minecraft)
+        run: go test -tags e2e -v -count=1 -timeout 20m ./test/e2e/
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker ps -a
+          for c in $(docker ps -aq --filter name=minectl-); do
+            echo "::group::$(docker inspect -f '{{.Name}}' "$c")"
+            docker logs --tail 200 "$c"
+            echo "::endgroup::"
+          done
+
+  staticcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: dominikh/staticcheck-action@v1
+        with:
+          install-go: false
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod

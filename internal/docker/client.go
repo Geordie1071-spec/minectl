@@ -30,3 +30,16 @@ func (c *Client) CheckDockerRunning(ctx context.Context) error {
 	_, err := c.cli.Ping(ctx)
 	return err
 }
+
+type HostResources struct {
+	MemoryMB int
+	CPUs     int
+}
+
+func (c *Client) HostResources(ctx context.Context) (HostResources, error) {
+	info, err := c.cli.Info(ctx)
+	if err != nil {
+		return HostResources{}, err
+	}
+	return HostResources{MemoryMB: int(info.MemTotal / (1024 * 1024)), CPUs: info.NCPU}, nil
+}

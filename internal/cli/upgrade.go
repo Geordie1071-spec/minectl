@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"context"
 	"fmt"
+	"time"
 
-	"github.com/minectl/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -25,14 +25,19 @@ func init() {
 }
 
 func runUpgrade(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx, cancel := signalContext()
+	defer cancel()
 	d, err := getDockerClient(ctx)
 	if err != nil {
 		return err
 	}
 	defer d.Close()
 	st := getStore()
+	before := time.Now()
 	if err := server.Upgrade(ctx, d, st, args[0], upgradeVersion, upgradeNoBackup); err != nil {
+		return err
+	}
+	if err := waitIfRestarted(ctx, d, st, args[0], before); err != nil {
 		return err
 	}
 	if !quiet {

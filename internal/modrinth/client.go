@@ -22,11 +22,11 @@ type ModResult struct {
 }
 
 type ModVersion struct {
-	ID          string   `json:"id"`
-	VersionNumber string `json:"version_number"`
-	GameVersions []string `json:"game_versions"`
-	Loaders     []string `json:"loaders"`
-	Files       []struct {
+	ID            string   `json:"id"`
+	VersionNumber string   `json:"version_number"`
+	GameVersions  []string `json:"game_versions"`
+	Loaders       []string `json:"loaders"`
+	Files         []struct {
 		URL      string `json:"url"`
 		Filename string `json:"filename"`
 		Primary  bool   `json:"primary"`
@@ -34,13 +34,18 @@ type ModVersion struct {
 }
 
 type ModpackVersion struct {
-	ID             string   `json:"id"`
-	VersionNumber  string   `json:"version_number"`
-	GameVersions   []string `json:"game_versions"`
-	Loaders        []string `json:"loaders"`
-	VersionType    string   `json:"version_type"`
-	Featured       bool     `json:"featured"`
-	DatePublished  string   `json:"date_published"`
+	ID            string   `json:"id"`
+	VersionNumber string   `json:"version_number"`
+	GameVersions  []string `json:"game_versions"`
+	Loaders       []string `json:"loaders"`
+	VersionType   string   `json:"version_type"`
+	Featured      bool     `json:"featured"`
+	DatePublished string   `json:"date_published"`
+	Files         []struct {
+		URL      string `json:"url"`
+		Filename string `json:"filename"`
+		Primary  bool   `json:"primary"`
+	} `json:"files"`
 }
 
 type Client struct {
@@ -152,54 +157,6 @@ func (c *Client) GetModpackVersions(packID, loader string) ([]ModpackVersion, er
 	return versions, nil
 }
 
-type ModpackVersionInfo struct {
-	MCVersion        string
-	ModpackVersionID string
-}
-
-func (c *Client) GetModpackRecommendedVersion(packID, loader string) (ModpackVersionInfo, error) {
-	var out ModpackVersionInfo
-	versions, err := c.GetModpackVersions(packID, loader)
-	if err != nil {
-		return out, err
-	}
-	if len(versions) == 0 {
-		return out, fmt.Errorf("no versions found for modpack %q with loader %q", packID, loader)
-	}
-	v := versions[0]
-	if len(v.GameVersions) == 0 {
-		return out, fmt.Errorf("modpack version %s has no game_versions", v.ID)
-	}
-	out.MCVersion = v.GameVersions[0]
-	out.ModpackVersionID = v.ID
-	return out, nil
-}
-
-func (c *Client) ModpackSupportsVersion(packID, mcVersion, loader string) (bool, error) {
-	versions, err := c.GetModpackVersions(packID, loader)
-	if err != nil {
-		return false, err
-	}
-	for _, v := range versions {
-		for _, gv := range v.GameVersions {
-			if gv == mcVersion {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
-func (c *Client) ResolveModpackURL(packID, version string) (string, error) {
-	if packID == "" {
-		return "", fmt.Errorf("modpack id required")
-	}
-	if version != "" {
-		return "https://api.modrinth.com/v2/project/" + packID + "/version/" + version, nil
-	}
-	return "https://api.modrinth.com/v2/project/" + packID, nil
-}
-
 func (v *ModVersion) GetVersionDownloadURL() string {
 	for _, f := range v.Files {
 		if f.Primary {
@@ -216,8 +173,10 @@ func NormalizeLoader(mcType string) string {
 	switch strings.ToLower(mcType) {
 	case "fabric":
 		return "fabric"
-	case "forge", "neoforge":
+	case "forge":
 		return "forge"
+	case "neoforge":
+		return "neoforge"
 	case "quilt":
 		return "quilt"
 	default:

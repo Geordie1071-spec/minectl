@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/minectl/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +27,13 @@ func runList(cmd *cobra.Command, args []string) error {
 	servers, err := st.ListServers()
 	if err != nil {
 		return err
+	}
+	ctx := context.Background()
+	if d, err := getDockerClient(ctx); err == nil {
+		if synced, err := server.SyncAll(ctx, d, st); err == nil {
+			servers = synced
+		}
+		_ = d.Close()
 	}
 	if jsonOut {
 		data, _ := json.MarshalIndent(servers, "", "  ")
