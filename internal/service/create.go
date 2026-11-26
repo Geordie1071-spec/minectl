@@ -107,7 +107,7 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest, ev Events) (*do
 	if err != nil {
 		return nil, err
 	}
-	plan.report(ev)
+	plan.report(ev, m.CLIHints)
 
 	s, err := server.Create(ctx, m.D, m.St, server.CreateOptions{
 		Name:           req.Name,

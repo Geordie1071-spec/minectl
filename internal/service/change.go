@@ -40,7 +40,7 @@ func (m *Manager) Resize(ctx context.Context, name, memory, cpu string, players 
 	if err := m.St.SaveServer(s); err != nil {
 		return err
 	}
-	plan.report(ev)
+	plan.report(ev, m.CLIHints)
 	return m.apply(ctx, name, ev)
 }
 
