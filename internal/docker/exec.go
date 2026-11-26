@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 func (c *Client) ExecCommand(ctx context.Context, containerID string, cmd []string) (stdout string, err error) {
@@ -30,7 +31,7 @@ func (c *Client) ExecCommand(ctx context.Context, containerID string, cmd []stri
 	defer attach.Close()
 
 	var out strings.Builder
-	_, err = io.Copy(&out, attach.Reader)
+	_, err = stdcopy.StdCopy(&out, &out, attach.Reader)
 	if err != nil && err != io.EOF {
 		return out.String(), err
 	}
