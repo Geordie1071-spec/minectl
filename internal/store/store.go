@@ -1,61 +1,220 @@
 package store
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
+	_ "modernc.org/sqlite"
 )
 
-type Store struct {
-	mu sync.Mutex
+const (
+	lockTTL       = 2 * time.Minute
+	lockHeartbeat = 30 * time.Second
+)
+
+var migrations = []string{
+	`CREATE TABLE servers (
+		name TEXT PRIMARY KEY,
+		data TEXT NOT NULL
+	);
+	CREATE TABLE config (
+		id   INTEGER PRIMARY KEY CHECK (id = 1),
+		data TEXT NOT NULL
+	);
+	CREATE TABLE locks (
+		server      TEXT PRIMARY KEY,
+		holder      TEXT NOT NULL,
+		token       TEXT NOT NULL,
+		acquired_at TEXT NOT NULL,
+		expires_at  TEXT NOT NULL
+	);`,
 }
 
-type serversFile struct {
-	Version int             `json:"version"`
-	Servers []domain.Server `json:"servers"`
+type Store struct {
+	once sync.Once
+	db   *sql.DB
+	err  error
+}
+
+type LockedError struct {
+	Server string
+	Holder string
+}
+
+func (e *LockedError) Error() string {
+	return fmt.Sprintf("%s is busy: %s", e.Server, e.Holder)
 }
 
 func New() *Store {
 	return &Store{}
 }
 
-func (s *Store) ensureConfigDir() error {
-	return os.MkdirAll(config.ConfigDir(), 0755)
+func Path() string {
+	return filepath.Join(config.ConfigDir(), "minectl.db")
+}
+
+func (s *Store) open() (*sql.DB, error) {
+	s.once.Do(func() {
+		s.db, s.err = openDB(Path())
+	})
+	return s.db, s.err
+}
+
+func (s *Store) Close() error {
+	if s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
+func openDB(path string) (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return nil, err
+	}
+	dsn := "file:" + path + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_txlock=immediate"
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := migrate(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	return db, nil
+}
+
+func migrate(db *sql.DB) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var version int
+	if err := tx.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		return err
+	}
+	if version >= len(migrations) {
+		return nil
+	}
+	for i := version; i < len(migrations); i++ {
+		if _, err := tx.Exec(migrations[i]); err != nil {
+			return fmt.Errorf("migration %d: %w", i+1, err)
+		}
+	}
+	if version == 0 {
+		if err := importJSON(tx); err != nil {
+			return fmt.Errorf("import json state: %w", err)
+		}
+	}
+	if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, len(migrations))); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	for _, p := range []string{legacyServersPath(), legacyConfigPath()} {
+		if _, err := os.Stat(p); err == nil {
+			_ = os.Rename(p, p+".migrated")
+		}
+	}
+	return nil
+}
+
+func legacyServersPath() string { return filepath.Join(config.ConfigDir(), "servers.json") }
+func legacyConfigPath() string  { return filepath.Join(config.ConfigDir(), "config.json") }
+
+func importJSON(tx *sql.Tx) error {
+	if data, err := os.ReadFile(legacyServersPath()); err == nil {
+		var f struct {
+			Servers []domain.Server `json:"servers"`
+		}
+		if err := json.Unmarshal(data, &f); err != nil {
+			return fmt.Errorf("servers.json: %w", err)
+		}
+		for i := range f.Servers {
+			if err := upsertServer(tx, &f.Servers[i]); err != nil {
+				return err
+			}
+		}
+	}
+	if data, err := os.ReadFile(legacyConfigPath()); err == nil {
+		var c domain.Config
+		if err := json.Unmarshal(data, &c); err != nil {
+			return fmt.Errorf("config.json: %w", err)
+		}
+		if _, err := tx.Exec(`INSERT INTO config (id, data) VALUES (1, ?)`, string(data)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func upsertServer(db execer, s *domain.Server) error {
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`INSERT INTO servers (name, data) VALUES (?, ?)
+		ON CONFLICT(name) DO UPDATE SET data = excluded.data`, s.Name, string(data))
+	return err
 }
 
 func (s *Store) ListServers() ([]domain.Server, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := os.ReadFile(config.ServersPath())
+	db, err := s.open()
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
+		return nil, err
+	}
+	rows, err := db.Query(`SELECT data FROM servers ORDER BY rowid`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Server
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
 		}
-		return nil, err
+		var sv domain.Server
+		if err := json.Unmarshal([]byte(data), &sv); err != nil {
+			return nil, err
+		}
+		out = append(out, sv)
 	}
-
-	var f serversFile
-	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, err
-	}
-	return f.Servers, nil
+	return out, rows.Err()
 }
 
 func (s *Store) GetServer(name string) (*domain.Server, error) {
-	servers, err := s.ListServers()
+	db, err := s.open()
 	if err != nil {
 		return nil, err
 	}
-	for i := range servers {
-		if servers[i].Name == name {
-			return &servers[i], nil
-		}
+	var data string
+	err = db.QueryRow(`SELECT data FROM servers WHERE name = ?`, name).Scan(&data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-	return nil, nil
+	if err != nil {
+		return nil, err
+	}
+	var sv domain.Server
+	if err := json.Unmarshal([]byte(data), &sv); err != nil {
+		return nil, err
+	}
+	return &sv, nil
 }
 
 func (s *Store) GetServerByID(id string) (*domain.Server, error) {
@@ -72,91 +231,37 @@ func (s *Store) GetServerByID(id string) (*domain.Server, error) {
 }
 
 func (s *Store) SaveServer(server *domain.Server) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.ensureConfigDir(); err != nil {
-		return err
-	}
-
-	servers, err := s.readServersUnlocked()
+	db, err := s.open()
 	if err != nil {
 		return err
 	}
-
-	found := false
-	for i := range servers {
-		if servers[i].Name == server.Name {
-			servers[i] = *server
-			found = true
-			break
-		}
-	}
-	if !found {
-		servers = append(servers, *server)
-	}
-
-	return s.writeServersUnlocked(servers)
-}
-
-func (s *Store) readServersUnlocked() ([]domain.Server, error) {
-	data, err := os.ReadFile(config.ServersPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var f serversFile
-	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, err
-	}
-	if f.Servers == nil {
-		return nil, nil
-	}
-	return f.Servers, nil
-}
-
-func (s *Store) writeServersUnlocked(servers []domain.Server) error {
-	f := serversFile{Version: 1, Servers: servers}
-	data, err := json.MarshalIndent(f, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(config.ServersPath(), data, 0644)
+	return upsertServer(db, server)
 }
 
 func (s *Store) DeleteServer(name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	servers, err := s.readServersUnlocked()
+	db, err := s.open()
 	if err != nil {
 		return err
 	}
-
-	var out []domain.Server
-	for _, sv := range servers {
-		if sv.Name != name {
-			out = append(out, sv)
-		}
-	}
-	return s.writeServersUnlocked(out)
+	_, err = db.Exec(`DELETE FROM servers WHERE name = ?`, name)
+	return err
 }
 
 func (s *Store) GetConfig() (*domain.Config, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := os.ReadFile(config.ConfigFilePath())
+	db, err := s.open()
 	if err != nil {
-		if os.IsNotExist(err) {
-			return s.defaultConfig(), nil
-		}
+		return nil, err
+	}
+	var data string
+	err = db.QueryRow(`SELECT data FROM config WHERE id = 1`).Scan(&data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return defaultConfig(), nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	var c domain.Config
-	if err := json.Unmarshal(data, &c); err != nil {
+	if err := json.Unmarshal([]byte(data), &c); err != nil {
 		return nil, err
 	}
 	if c.DefaultMemoryMB == 0 {
@@ -174,7 +279,7 @@ func (s *Store) GetConfig() (*domain.Config, error) {
 	return &c, nil
 }
 
-func (s *Store) defaultConfig() *domain.Config {
+func defaultConfig() *domain.Config {
 	return &domain.Config{
 		DefaultMemoryMB:         config.DefaultMemoryMB,
 		DefaultDataDir:          config.DefaultDataDir(),
@@ -186,42 +291,86 @@ func (s *Store) defaultConfig() *domain.Config {
 }
 
 func (s *Store) SaveConfig(cfg *domain.Config) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.ensureConfigDir(); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	db, err := s.open()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(config.ConfigFilePath(), data, 0644)
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`INSERT INTO config (id, data) VALUES (1, ?)
+		ON CONFLICT(id) DO UPDATE SET data = excluded.data`, string(data))
+	return err
+}
+
+func (s *Store) Lock(ctx context.Context, server, holder string) (release func(), err error) {
+	db, err := s.open()
+	if err != nil {
+		return nil, err
+	}
+	token := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
+	now := time.Now().UTC()
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var curHolder, expires string
+	err = tx.QueryRow(`SELECT holder, expires_at FROM locks WHERE server = ?`, server).Scan(&curHolder, &expires)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+	case err != nil:
+		return nil, err
+	default:
+		if exp, perr := time.Parse(time.RFC3339Nano, expires); perr == nil && exp.After(now) {
+			return nil, &LockedError{Server: server, Holder: curHolder}
+		}
+	}
+	_, err = tx.Exec(`INSERT INTO locks (server, holder, token, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(server) DO UPDATE SET holder = excluded.holder, token = excluded.token,
+		acquired_at = excluded.acquired_at, expires_at = excluded.expires_at`,
+		server, holder, token, now.Format(time.RFC3339Nano), now.Add(lockTTL).Format(time.RFC3339Nano))
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		t := time.NewTicker(lockHeartbeat)
+		defer t.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-t.C:
+				_, _ = db.Exec(`UPDATE locks SET expires_at = ? WHERE server = ? AND token = ?`,
+					time.Now().UTC().Add(lockTTL).Format(time.RFC3339Nano), server, token)
+			}
+		}
+	}()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			close(stop)
+			<-done
+			_, _ = db.Exec(`DELETE FROM locks WHERE server = ? AND token = ?`, server, token)
+		})
+	}, nil
 }
 
 func InitConfigDir() error {
-	dir := config.ConfigDir()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(config.ConfigDir(), 0755); err != nil {
 		return err
 	}
-	p := config.ServersPath()
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		f := serversFile{Version: 1, Servers: []domain.Server{}}
-		data, _ := json.MarshalIndent(f, "", "  ")
-		return os.WriteFile(p, data, 0644)
+	db, err := openDB(Path())
+	if err != nil {
+		return err
 	}
-	cfgPath := config.ConfigFilePath()
-	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		cfg := domain.Config{
-			DefaultMemoryMB:         config.DefaultMemoryMB,
-			DefaultDataDir:          config.DefaultDataDir(),
-			DefaultBackupDir:        config.DefaultBackupDir(),
-			BackupRetention:         config.DefaultBackupRetention,
-			AutoBackupEnabled:       false,
-			AutoBackupIntervalHours: 6,
-		}
-		data, _ := json.MarshalIndent(cfg, "", "  ")
-		return os.WriteFile(cfgPath, data, 0644)
-	}
-	return nil
+	return db.Close()
 }

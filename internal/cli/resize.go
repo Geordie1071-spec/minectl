@@ -3,9 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/Geordie1071-spec/minectl/internal/docker"
-	"github.com/Geordie1071-spec/minectl/internal/modrinth"
 	"github.com/Geordie1071-spec/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -47,83 +46,38 @@ func init() {
 }
 
 func runResize(cmd *cobra.Command, args []string) error {
-	name := args[0]
-	if resizeMemory == "" && resizeCPU == "" {
-		return fmt.Errorf("nothing to change; pass --memory and/or --cpu")
-	}
 	ctx, cancel := signalContext()
 	defer cancel()
-	d, err := getDockerClient(ctx)
+	m, closeFn, err := newManager(ctx)
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-	st := getStore()
-	s, err := st.GetServer(name)
-	if err != nil || s == nil {
-		return fmt.Errorf("server not found: %s", name)
-	}
-
-	mods := len(s.Mods)
-	if s.HasModrinthModpack() {
-		mc := modrinth.NewClient()
-		ver := ""
-		if s.ModpackVersion != nil {
-			ver = *s.ModpackVersion
-		}
-		if rel, err := mc.ResolveModpack(*s.ModpackID, s.MCType, "", ver); err == nil {
-			if n, err := mc.CountModpackMods(rel.FileURL); err == nil {
-				mods = n
-			}
-		}
-	}
-	memFlag, cpuFlag := resizeMemory, resizeCPU
-	if memFlag == "" {
-		memFlag = fmt.Sprintf("%dM", s.MemoryMB)
-	}
-	if cpuFlag == "" {
-		cpuFlag = fmt.Sprintf("%g", s.CPUCores)
-	}
-	plan, err := planResources(ctx, d, st, s.MCType, resizePlayers, mods, memFlag, cpuFlag)
-	if err != nil {
-		return err
-	}
-	s.MemoryMB, s.CPUCores = plan.MemoryMB, plan.CPUCores
-	if err := st.SaveServer(s); err != nil {
-		return err
-	}
-	if !quiet {
-		plan.print()
-	}
-	return applyServerChange(ctx, d, st, name)
+	defer closeFn()
+	ev := newEvents("")
+	err = m.Resize(ctx, args[0], resizeMemory, resizeCPU, resizePlayers, ev)
+	ev.finish()
+	return err
 }
 
 func runRecommend(cmd *cobra.Command, args []string) error {
-	mcType, mods := recommendType, recommendMods
-	if recommendModpack != "" {
-		mc := modrinth.NewClient()
-		rel, err := mc.ResolveModpack(recommendModpack, "", "", "")
-		if err != nil {
-			return err
-		}
-		n, err := mc.CountModpackMods(rel.FileURL)
-		if err != nil {
-			return err
-		}
-		mcType, mods = rel.Loader, n
-		fmt.Printf("Modpack: %s %s (%s, Minecraft %s, %d server mods)\n", rel.Slug, rel.VersionNumber, rel.Loader, rel.MCVersion, n)
-	}
-	var host docker.HostResources
 	ctx, cancel := signalContext()
 	defer cancel()
+	m := &service.Manager{St: getStore()}
 	if d, err := getDockerClient(ctx); err == nil {
-		host, _ = d.HostResources(ctx)
-		_ = d.Close()
+		m.D = d
+		defer d.Close()
 	}
-	rec := server.Recommend(mcType, recommendPlayers, mods, host)
+	res, err := m.Recommend(ctx, service.RecommendRequest{Type: recommendType, Players: recommendPlayers, Mods: recommendMods, Modpack: recommendModpack})
+	if err != nil {
+		return err
+	}
 	if jsonOut {
-		return printJSON(rec)
+		return printJSON(res.Recommendation)
 	}
+	if rel := res.Modpack; rel != nil {
+		fmt.Printf("Modpack: %s %s (%s, Minecraft %s, %d server mods)\n", rel.Slug, rel.VersionNumber, rel.Loader, rel.MCVersion, res.Mods)
+	}
+	rec := res.Recommendation
 	fmt.Printf("Memory: %s  (%s)\n", server.FormatMB(rec.MemoryMB), rec.Reason)
 	fmt.Printf("CPU:    %g cores\n", rec.CPUCores)
 	for _, w := range rec.Warnings {

@@ -54,7 +54,7 @@ func (c *Client) FollowLogs(ctx context.Context, containerID string, tail int, o
 func (c *Client) StreamLogsSince(ctx context.Context, containerID string, follow bool, since time.Time, outCh chan<- string) error {
 	opts := container.LogsOptions{Follow: follow}
 	if !since.IsZero() {
-		opts.Since = strconv.FormatInt(since.Unix(), 10)
+		opts.Since = DockerTimestamp(since)
 	}
 	return c.streamLogs(ctx, containerID, opts, outCh)
 }
@@ -82,4 +82,8 @@ func (c *Client) streamLogs(ctx context.Context, containerID string, opts contai
 		}
 	}
 	return sc.Err()
+}
+
+func DockerTimestamp(t time.Time) string {
+	return fmt.Sprintf("%d.%09d", t.Unix(), t.Nanosecond())
 }

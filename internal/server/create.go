@@ -135,13 +135,14 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 
 	if !opts.NoStart {
 		report(96, "starting container")
+		startedAt := time.Now().UTC()
 		if err := d.StartContainer(ctx, containerID); err != nil {
 			s.Status = domain.StatusStopped
 			_ = st.SaveServer(s)
 			return nil, fmt.Errorf("start container: %w", err)
 		}
 		s.Status = domain.StatusRunning
-		s.LastStartedAt = time.Now().UTC()
+		s.LastStartedAt = startedAt
 		if err := st.SaveServer(s); err != nil {
 			return nil, err
 		}

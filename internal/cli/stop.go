@@ -1,10 +1,8 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -24,23 +22,21 @@ func init() {
 }
 
 func runStop(cmd *cobra.Command, args []string) error {
-	name := args[0]
-	ctx := context.Background()
-	d, err := getDockerClient(ctx)
+	ctx, cancel := signalContext()
+	defer cancel()
+	m, closeFn, err := newManager(ctx)
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-	st := getStore()
-
-	pb := NewProgressBar("")
-	defer pb.End()
-
-	if err := server.Stop(ctx, d, st, name, stopForce, stopTimeout, pb.ServerProgress()); err != nil {
+	defer closeFn()
+	ev := newEvents("")
+	err = m.Stop(ctx, args[0], stopForce, stopTimeout, ev)
+	ev.finish()
+	if err != nil {
 		return err
 	}
 	if !quiet {
-		fmt.Println("Stopped", name)
+		fmt.Println("Stopped", args[0])
 	}
 	return nil
 }
