@@ -8,23 +8,23 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/minectl/minectl/internal/config"
-	"github.com/minectl/minectl/internal/domain"
-	"github.com/minectl/minectl/internal/modrinth"
-	"github.com/minectl/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/config"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/modrinth"
+	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 
 var (
-	createName         string
-	createType         string
-	createVersion      string
-	createMemory       string
-	createCPU          float64
-	createPort         int
-	createDataDir      string
-	createNoStart      bool
-	createModpack      string
+	createName           string
+	createType           string
+	createVersion        string
+	createMemory         string
+	createCPU            float64
+	createPort           int
+	createDataDir        string
+	createNoStart        bool
+	createModpack        string
 	createModpackVersion string
 )
 

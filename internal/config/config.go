@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	Version               = "0.1.0"
-	DefaultMemoryMB       = 2048
+	Version                = "0.1.0"
+	DefaultMemoryMB        = 2048
 	DefaultBackupRetention = 7
-	MinecraftImage        = "itzg/minecraft-server"
-	MinecraftPort         = 25565
-	ContainerNamePrefix   = "minectl-"
+	MinecraftImage         = "itzg/minecraft-server"
+	MinecraftPort          = 25565
+	ContainerNamePrefix    = "minectl-"
 )
 
 func ImageTagForMCVersion(mcVersion, mcType string) string {

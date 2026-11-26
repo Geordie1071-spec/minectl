@@ -22,11 +22,11 @@ type ModResult struct {
 }
 
 type ModVersion struct {
-	ID          string   `json:"id"`
-	VersionNumber string `json:"version_number"`
-	GameVersions []string `json:"game_versions"`
-	Loaders     []string `json:"loaders"`
-	Files       []struct {
+	ID            string   `json:"id"`
+	VersionNumber string   `json:"version_number"`
+	GameVersions  []string `json:"game_versions"`
+	Loaders       []string `json:"loaders"`
+	Files         []struct {
 		URL      string `json:"url"`
 		Filename string `json:"filename"`
 		Primary  bool   `json:"primary"`
@@ -34,13 +34,13 @@ type ModVersion struct {
 }
 
 type ModpackVersion struct {
-	ID             string   `json:"id"`
-	VersionNumber  string   `json:"version_number"`
-	GameVersions   []string `json:"game_versions"`
-	Loaders        []string `json:"loaders"`
-	VersionType    string   `json:"version_type"`
-	Featured       bool     `json:"featured"`
-	DatePublished  string   `json:"date_published"`
+	ID            string   `json:"id"`
+	VersionNumber string   `json:"version_number"`
+	GameVersions  []string `json:"game_versions"`
+	Loaders       []string `json:"loaders"`
+	VersionType   string   `json:"version_type"`
+	Featured      bool     `json:"featured"`
+	DatePublished string   `json:"date_published"`
 }
 
 type Client struct {

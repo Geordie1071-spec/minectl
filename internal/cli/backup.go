@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/dustin/go-humanize"
-	"github.com/minectl/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 

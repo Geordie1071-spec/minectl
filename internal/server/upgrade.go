@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/minectl/minectl/internal/docker"
-	"github.com/minectl/minectl/internal/domain"
-	"github.com/minectl/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/docker"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 )
 
 func Upgrade(ctx context.Context, d *docker.Client, st *store.Store, name, newVersion string, noBackup bool) error {

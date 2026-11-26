@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/modrinth"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 	"github.com/google/uuid"
-	"github.com/minectl/minectl/internal/domain"
-	"github.com/minectl/minectl/internal/modrinth"
-	"github.com/minectl/minectl/internal/store"
 )
 
 func AddMod(ctx context.Context, st *store.Store, name, modIDOrSlug, version string) (*domain.Mod, error) {

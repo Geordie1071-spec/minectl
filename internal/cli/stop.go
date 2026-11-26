@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/minectl/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 
-var stopForce   bool
+var stopForce bool
 var stopTimeout int
 
 var stopCmd = &cobra.Command{

@@ -1,4 +1,4 @@
-module github.com/minectl/minectl
+module github.com/Geordie1071-spec/minectl
 
 go 1.25.0
 

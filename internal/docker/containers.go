@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Geordie1071-spec/minectl/internal/config"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/go-connections/nat"
-	"github.com/minectl/minectl/internal/config"
-	"github.com/minectl/minectl/internal/domain"
 )
 
 func (c *Client) CreateMinecraftContainer(ctx context.Context, s *domain.Server, env []string) (string, error) {

@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/minectl/minectl/internal/docker"
-	"github.com/minectl/minectl/internal/domain"
-	"github.com/minectl/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/docker"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 )
 
 type ProgressFunc func(percent int, msg string)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/minectl/minectl/internal/cli"
+	"github.com/Geordie1071-spec/minectl/internal/cli"
 )
 
 func main() {

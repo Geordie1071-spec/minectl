@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/minectl/minectl/internal/config"
-	"github.com/minectl/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/config"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
 )
 
 type Store struct {
@@ -14,7 +14,7 @@ type Store struct {
 }
 
 type serversFile struct {
-	Version int            `json:"version"`
+	Version int             `json:"version"`
 	Servers []domain.Server `json:"servers"`
 }
 
@@ -225,4 +225,3 @@ func InitConfigDir() error {
 	}
 	return nil
 }
-

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/minectl/minectl/internal/config"
-	"github.com/minectl/minectl/internal/docker"
-	"github.com/minectl/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/config"
+	"github.com/Geordie1071-spec/minectl/internal/docker"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

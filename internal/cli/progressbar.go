@@ -6,23 +6,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/minectl/minectl/internal/server"
+	"github.com/Geordie1071-spec/minectl/internal/server"
 )
 
 type ProgressBar struct {
-	mu         sync.Mutex
-	last       int
-	done       bool
-	width      int
-	prefix     string
-	finalized  bool
+	mu        sync.Mutex
+	last      int
+	done      bool
+	width     int
+	prefix    string
+	finalized bool
 }
 
 func NewProgressBar(prefix string) *ProgressBar {
 	return &ProgressBar{
-		last:  0,
-		done:  false,
-		width: 30,
+		last:   0,
+		done:   false,
+		width:  30,
 		prefix: strings.TrimSpace(prefix),
 	}
 }
@@ -87,4 +87,3 @@ func (p *ProgressBar) Callback(percent int, msg string) {
 func (p *ProgressBar) ServerProgress() server.ProgressFunc {
 	return p.Callback
 }
-

@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Geordie1071-spec/minectl/internal/modrinth"
+	"github.com/Geordie1071-spec/minectl/internal/server"
 	"github.com/dustin/go-humanize"
-	"github.com/minectl/minectl/internal/modrinth"
-	"github.com/minectl/minectl/internal/server"
 	"github.com/spf13/cobra"
 )
 

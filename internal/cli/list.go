@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/minectl/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/domain"
 	"github.com/spf13/cobra"
 )
 

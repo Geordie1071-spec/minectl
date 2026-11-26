@@ -21,29 +21,29 @@ const (
 )
 
 type Server struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	ContainerID      string    `json:"container_id"`
-	MCType           string    `json:"mc_type"`
-	MCVersion        string    `json:"mc_version"`
-	MemoryMB         int       `json:"memory_mb"`
-	CPUCores         float64   `json:"cpu_cores"`
-	Port             int       `json:"port"`
-	Status           string    `json:"status"`
-	ModLoader        string    `json:"mod_loader"`
-	ModpackSource    *string   `json:"modpack_source,omitempty"`
-	ModpackID        *string   `json:"modpack_id,omitempty"`
-	ModpackVersion   *string   `json:"modpack_version,omitempty"`
-	ModsLocked       bool      `json:"mods_locked"`
-	JavaFlags        string    `json:"java_flags"`
-	ImageTag         string    `json:"image_tag,omitempty"`
-	DataDir          string    `json:"data_dir"`
-	BackupDir        string    `json:"backup_dir"`
-	CreatedAt        time.Time `json:"created_at"`
-	LastStartedAt    time.Time `json:"last_started_at"`
-	Mods             []Mod     `json:"mods,omitempty"`
-	Backups          []Backup  `json:"backups,omitempty"`
-	AutoBackupCron   string    `json:"auto_backup_cron,omitempty"`
+	ID               string     `json:"id"`
+	Name             string     `json:"name"`
+	ContainerID      string     `json:"container_id"`
+	MCType           string     `json:"mc_type"`
+	MCVersion        string     `json:"mc_version"`
+	MemoryMB         int        `json:"memory_mb"`
+	CPUCores         float64    `json:"cpu_cores"`
+	Port             int        `json:"port"`
+	Status           string     `json:"status"`
+	ModLoader        string     `json:"mod_loader"`
+	ModpackSource    *string    `json:"modpack_source,omitempty"`
+	ModpackID        *string    `json:"modpack_id,omitempty"`
+	ModpackVersion   *string    `json:"modpack_version,omitempty"`
+	ModsLocked       bool       `json:"mods_locked"`
+	JavaFlags        string     `json:"java_flags"`
+	ImageTag         string     `json:"image_tag,omitempty"`
+	DataDir          string     `json:"data_dir"`
+	BackupDir        string     `json:"backup_dir"`
+	CreatedAt        time.Time  `json:"created_at"`
+	LastStartedAt    time.Time  `json:"last_started_at"`
+	Mods             []Mod      `json:"mods,omitempty"`
+	Backups          []Backup   `json:"backups,omitempty"`
+	AutoBackupCron   string     `json:"auto_backup_cron,omitempty"`
 	AutoBackupNextAt *time.Time `json:"auto_backup_next_at,omitempty"`
 }
 
@@ -68,12 +68,12 @@ type Backup struct {
 }
 
 type Config struct {
-	DefaultMemoryMB          int  `json:"default_memory_mb"`
-	DefaultDataDir           string `json:"default_data_dir"`
-	DefaultBackupDir         string `json:"default_backup_dir"`
-	BackupRetention          int  `json:"backup_retention"`
-	AutoBackupEnabled        bool `json:"auto_backup_enabled"`
-	AutoBackupIntervalHours  int  `json:"auto_backup_interval_hours"`
+	DefaultMemoryMB         int    `json:"default_memory_mb"`
+	DefaultDataDir          string `json:"default_data_dir"`
+	DefaultBackupDir        string `json:"default_backup_dir"`
+	BackupRetention         int    `json:"backup_retention"`
+	AutoBackupEnabled       bool   `json:"auto_backup_enabled"`
+	AutoBackupIntervalHours int    `json:"auto_backup_interval_hours"`
 }
 
 func (s *Server) EnabledModURLs() []string {
