@@ -140,3 +140,20 @@ func TestEventCapAndInterrupted(t *testing.T) {
 		t.Fatalf("stale job not failed: %+v", got)
 	}
 }
+
+// A client that follows a job to the end must be able to start the next
+// job on the same server straight away.
+func TestServerFreeWhenFollowEnds(t *testing.T) {
+	r, _ := newRunner(t)
+	for i := 0; i < 50; i++ {
+		j, err := r.Start("restart", "alpha", 0, func(context.Context, service.Events) (string, error) { return "ok", nil })
+		if err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
+		collect(t, r, j.ID, 0)
+		if a := r.Active("alpha"); a != nil {
+			t.Fatalf("iteration %d: server still busy after the job ended", i)
+		}
+	}
+	r.Wait()
+}
