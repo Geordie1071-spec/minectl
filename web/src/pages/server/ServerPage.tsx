@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Route, Routes, useLocation, useParams } from "react-router-dom";
 import { api, errorMessage, srv, type Job, type Server } from "../../api";
 import { useServer } from "../../hooks";
-import { PageTitle } from "../../layout";
+import { PageTitle, Tabs, type Tab } from "../../layout";
 import { useJoinAddress } from "../../join";
-import { typeLabels } from "../../format";
+import { isModded, typeLabels } from "../../format";
 import { JobBanner, jobLabel } from "../../JobView";
-import { Alert, Button, CopyButton, Skeleton, StatusBadge, TypeTile } from "../../ui";
+import { Alert, Button, CopyButton, Skeleton, StatusBadge } from "../../ui";
+import { Box, ChevronRight, Play, RotateCw, Square } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Overview } from "./Overview";
 import { Console } from "./Console";
 import { PlayersTab } from "./Players";
@@ -21,6 +23,19 @@ export interface TabProps {
 
 const rank = { viewer: 1, operator: 2, admin: 3 } as const;
 export const can = (s: Server, role: keyof typeof rank) => rank[s.role] >= rank[role];
+
+function serverTabs(s: Server): Tab[] {
+  const base = srv(s.name);
+  const tabs: Tab[] = [
+    { to: base, label: "Overview", end: true },
+    { to: base + "/console", label: "Console" },
+    { to: base + "/players", label: "Players" },
+    { to: base + "/backups", label: "Backups" },
+  ];
+  if (can(s, "admin") && (isModded(s.type) || s.modpack)) tabs.push({ to: base + "/mods", label: "Mods" });
+  if (can(s, "admin")) tabs.push({ to: base + "/settings", label: "Settings" });
+  return tabs;
+}
 
 export function ServerPage() {
   const { name = "" } = useParams();
@@ -72,12 +87,21 @@ export function ServerPage() {
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div className="mb-5 flex items-center gap-1 text-[13px] text-muted">
+        <Link to="/" className="hover:text-fg">
+          Servers
+        </Link>
+        <ChevronRight className="h-3.5 w-3.5 text-subtle" />
+        <span className="text-fg">{s.name}</span>
+      </div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <TypeTile type={s.type} className="h-12 w-12 animate-scale-in rounded-lg text-lg" />
+          <span className="flex h-12 w-12 shrink-0 animate-scale-in items-center justify-center rounded-xl border border-line-strong bg-surface-2">
+            <Box className="h-6 w-6" strokeWidth={1.5} />
+          </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <h1 className="truncate text-[28px] leading-tight font-semibold tracking-tight">{s.name}</h1>
+              <h1 className="truncate text-[28px] leading-tight font-medium tracking-tight">{s.name}</h1>
               <StatusBadge status={s.status} busy={s.job ? `${jobLabel(s.job.kind)}…` : undefined} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -100,15 +124,15 @@ export function ServerPage() {
             {running ? (
               <>
                 <Button disabled={busy} onClick={() => runJob("/restart").catch(() => {})}>
-                  Restart
+                  <RotateCw className="h-4 w-4" strokeWidth={1.75} /> Restart
                 </Button>
                 <Button disabled={busy} onClick={() => runJob("/stop").catch(() => {})}>
-                  Stop
+                  <Square className="h-3.5 w-3.5" strokeWidth={1.75} /> Stop
                 </Button>
               </>
             ) : (
               <Button variant="primary" disabled={busy} onClick={() => runJob("/start").catch(() => {})}>
-                Start server
+                <Play className="h-4 w-4" strokeWidth={2} /> Start server
               </Button>
             )}
           </div>
@@ -126,6 +150,9 @@ export function ServerPage() {
         </div>
       )}
 
+      <div className="mb-8">
+        <Tabs tabs={serverTabs(s)} />
+      </div>
       <div key={location.pathname} className="animate-fade-up">
       <Routes>
         <Route index element={<Overview s={s} runJob={runJob} />} />

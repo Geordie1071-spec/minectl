@@ -5,59 +5,61 @@
 /* A monochrome dashboard: neutral greys, 1px borders, black primary actions.
    Blue (from the logo) is kept for focus, links, selection and progress. */
 :root {
-  --bg: #fafafa;
+  --bg: #f4f5f7;
   --surface: #ffffff;
-  --surface-2: #f5f5f5;
-  --hover: #f2f2f2;
-  --border: #ebebeb;
-  --border-strong: #d4d4d4;
-  --text: #171717;
-  --muted: #666666;
-  --subtle: #8f8f8f;
-  --primary: #171717;
-  --primary-hover: #383838;
+  --surface-2: #fafbfc;
+  --hover: #f0f1f4;
+  --border: #e4e6eb;
+  --border-strong: #d0d4dc;
+  --text: #16181d;
+  --muted: #5f6675;
+  --subtle: #8b92a1;
+  --primary: #2c6bed;
+  --primary-hover: #1f58d6;
   --primary-fg: #ffffff;
   --accent: #2c6bed;
   --accent-soft: #eef4ff;
-  --ok: #18a058;
-  --ok-soft: #e9f7ef;
+  --ok: #17a05d;
+  --ok-soft: #e8f6ee;
   --danger: #e5484d;
   --danger-soft: #fdecec;
   --warn: #c27c0e;
   --warn-soft: #fff5e0;
-  --console-bg: #0a0a0a;
-  --console-fg: #d4d4d4;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.04), 0 16px 32px rgb(0 0 0 / 0.08);
+  --console-bg: #0d0f13;
+  --console-fg: #d4d8e1;
+  --dot: #d6d9e0;
+  --shadow: 0 1px 2px rgb(16 18 24 / 0.04);
+  --shadow-lg: 0 4px 8px rgb(16 18 24 / 0.05), 0 16px 32px rgb(16 18 24 / 0.1);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --surface: #0a0a0a;
-    --surface-2: #111111;
-    --hover: #1a1a1a;
-    --border: #262626;
-    --border-strong: #3d3d3d;
-    --text: #ededed;
-    --muted: #a1a1a1;
-    --subtle: #737373;
-    --primary: #ededed;
-    --primary-hover: #cccccc;
-    --primary-fg: #0a0a0a;
-    --accent: #5b95ff;
-    --accent-soft: #0d1b33;
-    --ok: #3dd68c;
-    --ok-soft: #0c2419;
+    --bg: #121419;
+    --surface: #15171d;
+    --surface-2: #1b1e25;
+    --hover: #22252e;
+    --border: #282c35;
+    --border-strong: #363b46;
+    --text: #e8eaf0;
+    --muted: #9aa1b1;
+    --subtle: #6c7383;
+    --primary: #3b7bff;
+    --primary-hover: #5b91ff;
+    --primary-fg: #ffffff;
+    --accent: #5b91ff;
+    --accent-soft: #17223a;
+    --ok: #3ccf8e;
+    --ok-soft: #10261d;
     --danger: #ff6369;
-    --danger-soft: #2a1213;
+    --danger-soft: #2a1416;
     --warn: #f5b041;
-    --warn-soft: #2a1f0b;
-    --console-bg: #000000;
-    --console-fg: #d4d4d4;
+    --warn-soft: #2a200d;
+    --console-bg: #0c0d11;
+    --console-fg: #d4d8e1;
+    --dot: #2c303a;
     --shadow: 0 0 0 transparent;
-    --shadow-lg: 0 0 0 1px #262626, 0 16px 32px rgb(0 0 0 / 0.6);
+    --shadow-lg: 0 0 0 1px #282c35, 0 16px 40px rgb(0 0 0 / 0.55);
     color-scheme: dark;
   }
 }
@@ -96,6 +98,16 @@
   --animate-scale-in: scale-in 0.18s var(--ease-out-soft) both;
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-ping-soft: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-slide-in: slide-in 0.28s var(--ease-out-soft) both;
+
+  @keyframes slide-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: none;
+    }
+  }
 
   @keyframes fade-up {
     from {
@@ -180,6 +192,13 @@ body {
   .logo-on-dark {
     display: block;
   }
+}
+
+/* Railway-style dotted canvas. */
+.dots {
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: -8px -8px;
 }
 
 /* Faint grid behind the sign-in pages. */

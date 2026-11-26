@@ -120,7 +120,7 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
 export function JobBanner({ id, onClose }: { id: string; onClose?: () => void }) {
   const { done, job } = useJobStream(id);
   return (
-    <div className={cx("rounded-xl border bg-surface p-5 shadow-card", done && job?.status === "failed" ? "border-danger/40" : "border-line")}>
+    <div className={cx("rounded-xl border bg-surface-2 p-5 shadow-card", done && job?.status === "failed" ? "border-danger/40" : "border-line")}>
       <JobView id={id} compact />
       {done && onClose && (
         <div className="mt-3 flex justify-end">

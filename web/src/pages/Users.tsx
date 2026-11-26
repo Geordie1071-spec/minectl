@@ -163,7 +163,7 @@ export function Users() {
 
   return (
     <>
-      <PageTitle description="Add people and choose which servers they can use.">Users</PageTitle>
+      <PageTitle description="Add people and choose which servers they can use.">People</PageTitle>
       <div className="stagger grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card title="Everyone">

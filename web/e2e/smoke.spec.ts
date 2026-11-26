@@ -29,7 +29,7 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByLabel("Server name").blur();
   await expect(page.getByLabel("Server name")).toHaveValue("my-server-1");
 
-  await page.getByRole("link", { name: "Users" }).click();
+  await page.getByRole("link", { name: "People" }).click();
   await page.getByLabel("Username").fill("friend");
   await page.getByLabel("Password").fill("friendpass1");
   await page.getByRole("button", { name: "Add user" }).click();
@@ -54,7 +54,7 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByLabel("Password").fill("friendpass1");
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByText("No servers shared with you yet")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Users" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "People" })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

@@ -91,7 +91,7 @@ export function Card({
   flush?: boolean;
 }) {
   return (
-    <section className={cx("overflow-hidden rounded-lg border border-line bg-surface shadow-card", className)}>
+    <section className={cx("overflow-hidden rounded-xl border border-line bg-surface-2 shadow-card", className)}>
       {(title || actions) && (
         <header className="flex items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
@@ -102,7 +102,7 @@ export function Card({
         </header>
       )}
       <div className={flush ? "mt-4" : "p-5"}>{children}</div>
-      {footer && <footer className="flex items-center justify-between gap-3 border-t border-line bg-surface-2 px-5 py-3 text-sm text-muted">{footer}</footer>}
+      {footer && <footer className="flex items-center justify-between gap-3 border-t border-line bg-hover/40 px-5 py-3 text-sm text-muted">{footer}</footer>}
     </section>
   );
 }
@@ -168,7 +168,7 @@ export function Badge({ children, className }: { children: ReactNode; className?
 
 export function Empty({ title, children, icon }: { title: string; children?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex animate-fade-up flex-col items-center rounded-lg border border-dashed border-line-strong bg-surface px-6 py-16 text-center">
+    <div className="dots flex animate-fade-up flex-col items-center rounded-xl border border-dashed border-line-strong px-6 py-16 text-center">
       {icon && <div className="mb-4">{icon}</div>}
       <p className="text-base font-semibold tracking-tight">{title}</p>
       {children && <div className="mt-1.5 max-w-sm text-sm text-muted">{children}</div>}
@@ -219,7 +219,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
     <dialog
       ref={ref}
       onClose={onClose}
-      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-0 text-fg shadow-pop backdrop:bg-black/40 backdrop:backdrop-blur-[2px]"
+      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface-2 p-0 text-fg shadow-pop backdrop:bg-black/40 backdrop:backdrop-blur-[2px]"
     >
       <div className="px-6 pt-6 text-lg font-semibold tracking-tight">{title}</div>
       <div className="px-6 pt-3 pb-6">{children}</div>
