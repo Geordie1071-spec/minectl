@@ -37,6 +37,55 @@ var migrations = []string{
 		acquired_at TEXT NOT NULL,
 		expires_at  TEXT NOT NULL
 	);`,
+	`CREATE TABLE users (
+		id            INTEGER PRIMARY KEY,
+		username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+		password_hash TEXT NOT NULL,
+		is_admin      INTEGER NOT NULL DEFAULT 0,
+		created_at    TEXT NOT NULL
+	);
+	CREATE TABLE sessions (
+		token_hash TEXT PRIMARY KEY,
+		user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at TEXT NOT NULL,
+		expires_at TEXT NOT NULL
+	);
+	CREATE TABLE api_tokens (
+		id           INTEGER PRIMARY KEY,
+		user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name         TEXT NOT NULL,
+		token_hash   TEXT NOT NULL UNIQUE,
+		created_at   TEXT NOT NULL,
+		last_used_at TEXT
+	);
+	CREATE TABLE server_grants (
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		server  TEXT NOT NULL,
+		role    TEXT NOT NULL,
+		PRIMARY KEY (user_id, server)
+	);
+	CREATE TABLE jobs (
+		id          TEXT PRIMARY KEY,
+		kind        TEXT NOT NULL,
+		server      TEXT NOT NULL,
+		user_id     INTEGER,
+		status      TEXT NOT NULL,
+		error       TEXT NOT NULL DEFAULT '',
+		events      TEXT NOT NULL DEFAULT '[]',
+		created_at  TEXT NOT NULL,
+		finished_at TEXT
+	);
+	CREATE INDEX jobs_server ON jobs(server, created_at);
+	CREATE TABLE audit_log (
+		id       INTEGER PRIMARY KEY,
+		time     TEXT NOT NULL,
+		user_id  INTEGER,
+		username TEXT NOT NULL,
+		action   TEXT NOT NULL,
+		server   TEXT NOT NULL DEFAULT '',
+		detail   TEXT NOT NULL DEFAULT '',
+		ip       TEXT NOT NULL DEFAULT ''
+	);`,
 }
 
 type Store struct {
@@ -243,7 +292,10 @@ func (s *Store) DeleteServer(name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`DELETE FROM servers WHERE name = ?`, name)
+	if _, err = db.Exec(`DELETE FROM servers WHERE name = ?`, name); err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM server_grants WHERE server = ?`, name)
 	return err
 }
 
