@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
@@ -80,10 +82,11 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest, ev Events) (*do
 		ev.Info(fmt.Sprintf("Modpack: %s %s (%s, Minecraft %s, %d server mods)", rel.Slug, rel.VersionNumber, rel.Loader, rel.MCVersion, mods))
 	}
 
-	port := req.Port
-	if port <= 0 {
-		port = m.nextFreePort(config.MinecraftPort)
+	port, releasePort, err := m.choosePort(ctx, req.Port)
+	if err != nil {
+		return nil, err
 	}
+	defer releasePort()
 
 	modpackID, modpackSource, dataDir := req.Modpack, "", req.DataDir
 	if req.CurseForge != "" {
@@ -175,15 +178,68 @@ func (m *Manager) installCurseForge(ctx context.Context, req CreateRequest, data
 	return nil, errors.New(msg)
 }
 
-func (m *Manager) nextFreePort(start int) int {
-	servers, _ := m.St.ListServers()
-	used := map[int]bool{}
-	for _, s := range servers {
-		used[s.Port] = true
-	}
-	for p := start; ; p++ {
-		if !used[p] {
-			return p
+// Ports handed to creates that haven't saved their server yet, so creates
+// running at the same time don't pick the same one.
+var (
+	portMu   sync.Mutex
+	reserved = map[int]bool{}
+)
+
+// choosePort checks a requested port, or picks the first free one from
+// 25565. A port is taken if a minectl server uses it, a running container
+// publishes it, or something on this machine is listening on it.
+func (m *Manager) choosePort(ctx context.Context, requested int) (int, func(), error) {
+	portMu.Lock()
+	defer portMu.Unlock()
+	taken := map[int]string{}
+	if servers, err := m.St.ListServers(); err == nil {
+		for _, s := range servers {
+			taken[s.Port] = "minectl server " + s.Name
 		}
 	}
+	if m.D != nil {
+		if published, err := m.D.PublishedPorts(ctx); err == nil {
+			for p, name := range published {
+				if _, ok := taken[p]; !ok {
+					taken[p] = "container " + name
+				}
+			}
+		}
+	}
+	inUse := func(p int) string {
+		if who, ok := taken[p]; ok {
+			return who
+		}
+		if reserved[p] {
+			return "a server being created"
+		}
+		if !listenable(p) {
+			return "another program"
+		}
+		return ""
+	}
+	port := requested
+	if port > 0 {
+		if who := inUse(port); who != "" {
+			return 0, nil, fmt.Errorf("port %d is already in use by %s; pick another, or leave the port out to choose one automatically", port, who)
+		}
+	} else {
+		for port = config.MinecraftPort; inUse(port) != ""; port++ {
+		}
+	}
+	reserved[port] = true
+	return port, func() {
+		portMu.Lock()
+		delete(reserved, port)
+		portMu.Unlock()
+	}, nil
+}
+
+func listenable(port int) bool {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return false
+	}
+	l.Close()
+	return true
 }

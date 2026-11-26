@@ -72,3 +72,19 @@ func TestManualDownloadSummaryKeepsLinks(t *testing.T) {
 		t.Errorf("summary = %q", got)
 	}
 }
+
+func TestNetworkFailureHint(t *testing.T) {
+	logs := []string{
+		"[init] Resolving type given PAPER",
+		"\x1b[1;31m[mc-image-helper] 20:57:07.241 ERROR : 'install-paper' command failed. Version is 1.80.0: SearchDomainUnknownHostException: Failed to resolve 'fill-data.papermc.io'. Check network connectivity and DNS.",
+		"[init] [ERROR] Failed to download paper",
+	}
+	if got := DescribeStartFailure(logs); !strings.Contains(got, "couldn't reach the internet") {
+		t.Fatalf("hint = %q", got)
+	}
+	for _, line := range FailureSummary(append(logs, "[1;31mERROR stray code")) {
+		if strings.Contains(line, "[1;31m") || strings.Contains(line, "\x1b") {
+			t.Fatalf("summary kept a colour code: %q", line)
+		}
+	}
+}
