@@ -36,7 +36,7 @@ export function Mods({ s, runJob }: TabProps) {
             <Input value={pack} onChange={(e) => setPack(e.target.value)} placeholder="modpack-slug" />
           </Field>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} className="accent-[var(--accent)]" />
+            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
             Allow an older Minecraft version (can break the world)
           </label>
           <Button type="submit" disabled={busy || !pack.trim()}>

@@ -7,6 +7,8 @@ import { PageTitle } from "../layout";
 import { timeAgo } from "../format";
 import { Alert, Badge, Button, Card, Field, Input, Modal, Select, Spinner } from "../ui";
 
+const roleOptions = [{ value: "viewer", label: "Viewer" }, { value: "operator", label: "Operator" }];
+
 function UserRow({ u, servers, me }: { u: UserWithGrants; servers: Server[]; me: number }) {
   const qc = useQueryClient();
   const [server, setServer] = useState("");
@@ -64,13 +66,11 @@ function UserRow({ u, servers, me }: { u: UserWithGrants; servers: Server[]; me:
               <span className="min-w-0 flex-1 truncate">{g.server}</span>
               <Select
                 value={g.role}
-                onChange={(e) => run(() => api.put(`/users/${u.id}/grants/${encodeURIComponent(g.server)}`, { role: e.target.value }))}
+                onChange={(role) => run(() => api.put(`/users/${u.id}/grants/${encodeURIComponent(g.server)}`, { role }))}
                 className="w-32"
                 aria-label={`Role on ${g.server}`}
-              >
-                <option value="viewer">Viewer</option>
-                <option value="operator">Operator</option>
-              </Select>
+                options={roleOptions}
+              />
               <Button variant="ghost" className="text-xs" onClick={() => run(() => api.del(`/users/${u.id}/grants/${encodeURIComponent(g.server)}`))}>
                 Remove
               </Button>
@@ -84,18 +84,15 @@ function UserRow({ u, servers, me }: { u: UserWithGrants; servers: Server[]; me:
                 if (server) run(() => api.put(`/users/${u.id}/grants/${encodeURIComponent(server)}`, { role })).then(() => setServer(""));
               }}
             >
-              <Select value={server} onChange={(e) => setServer(e.target.value)} className="w-auto min-w-40 flex-1" aria-label="Server">
-                <option value="">Give access to…</option>
-                {ungranted.map((s) => (
-                  <option key={s.name} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-              <Select value={role} onChange={(e) => setRole(e.target.value)} className="w-32" aria-label="Role">
-                <option value="viewer">Viewer</option>
-                <option value="operator">Operator</option>
-              </Select>
+              <Select
+                value={server}
+                onChange={setServer}
+                placeholder="Give access to…"
+                className="w-auto min-w-40 flex-1"
+                aria-label="Server"
+                options={ungranted.map((s) => ({ value: s.name, label: s.name }))}
+              />
+              <Select value={role} onChange={setRole} className="w-32" aria-label="Role" options={roleOptions} />
               <Button type="submit" disabled={!server}>
                 Add
               </Button>
@@ -185,7 +182,7 @@ export function Users() {
                 <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="off" />
               </Field>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="accent-[var(--accent)]" />
+                <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
                 Admin (full control of everything)
               </label>
               {error && <Alert>{error}</Alert>}

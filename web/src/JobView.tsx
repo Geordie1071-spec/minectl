@@ -4,6 +4,7 @@ import { srv, type JobEvent } from "./api";
 import { useJobStream } from "./hooks";
 import { cleanLog } from "./format";
 import { Alert, Button, Spinner, cx } from "./ui";
+import { ArrowRight, Check, ChevronRight, X } from "lucide-react";
 
 const kindLabels: Record<string, string> = {
   create: "Creating",
@@ -49,8 +50,8 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         {status === "running" && <Spinner className="h-5 w-5 text-accent" />}
-        {status === "succeeded" && <span className="flex h-5 w-5 animate-scale-in items-center justify-center rounded-full bg-ok text-xs text-white">✓</span>}
-        {status === "failed" && <span className="flex h-5 w-5 animate-scale-in items-center justify-center rounded-full bg-danger text-xs text-white">!</span>}
+        {status === "succeeded" && <span className="flex h-5 w-5 animate-scale-in items-center justify-center rounded-full bg-ok text-white"><Check className="h-3 w-3" strokeWidth={3} /></span>}
+        {status === "failed" && <span className="flex h-5 w-5 animate-scale-in items-center justify-center rounded-full bg-danger text-white"><X className="h-3 w-3" strokeWidth={3} /></span>}
         <div className="min-w-0">
           <p className="font-medium">
             {job ? `${jobLabel(job.kind)} ${job.server}` : "Loading…"}
@@ -95,6 +96,7 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
       {logs.length > 0 && (
         <div>
           <Button variant="ghost" className="px-0 text-xs text-muted" onClick={() => setShowLog((v) => !v)}>
+            <ChevronRight className={cx("h-3.5 w-3.5 transition-transform duration-200", showLog && "rotate-90")} strokeWidth={2} />
             {showLog ? "Hide" : "Show"} server output ({logs.length} lines)
           </Button>
           {showLog && (
@@ -110,7 +112,9 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
 
       {done && job && job.kind !== "delete" && !compact && (
         <Link to={srv(job.server)}>
-          <Button variant={status === "succeeded" ? "primary" : "secondary"}>Go to {job.server}</Button>
+          <Button variant={status === "succeeded" ? "primary" : "secondary"}>
+            Go to {job.server} <ArrowRight className="h-4 w-4" strokeWidth={2} />
+          </Button>
         </Link>
       )}
     </div>

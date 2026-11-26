@@ -6,7 +6,7 @@ import { useMe, usePlayers, useServers } from "../hooks";
 import { useJoinAddress } from "../join";
 import { isModded, timeAgo, typeLabels } from "../format";
 import { jobLabel } from "../JobView";
-import { Alert, Button, Empty, LiveDot, Skeleton, Spinner, cx } from "../ui";
+import { Alert, Button, Empty, LiveDot, Select, Skeleton, Spinner, cx } from "../ui";
 
 type Sort = "recent" | "name";
 type View = "grid" | "list";
@@ -231,17 +231,19 @@ export function Dashboard() {
                 {shown.length} {shown.length === 1 ? "Server" : "Servers"}
               </span>
               <span className="h-4 w-px bg-line" aria-hidden="true" />
-              <label className="flex items-center gap-1 text-muted">
+              <span className="flex items-center gap-1 text-muted">
                 Sort by:
-                <select
+                <Select
+                  variant="inline"
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as Sort)}
-                  className="cursor-pointer rounded bg-transparent py-0.5 text-fg hover:bg-hover focus:outline-none"
-                >
-                  <option value="recent">Recent activity</option>
-                  <option value="name">Name</option>
-                </select>
-              </label>
+                  onChange={(v) => setSort(v as Sort)}
+                  aria-label="Sort servers by"
+                  options={[
+                    { value: "recent", label: "Recent activity" },
+                    { value: "name", label: "Name" },
+                  ]}
+                />
+              </span>
             </div>
             <div className="flex rounded-md border border-line p-0.5" role="group" aria-label="View">
               {(

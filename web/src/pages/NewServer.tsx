@@ -5,6 +5,7 @@ import { api, errorMessage, type Job, type Modpack, type Recommendation } from "
 import { PageTitle } from "../layout";
 import { compact, formatMB, typeLabels } from "../format";
 import { Alert, Button, Card, Field, Input, Select, Spinner, cx } from "../ui";
+import { ChevronRight, Download } from "lucide-react";
 
 type Source = "type" | "modrinth" | "curseforge";
 
@@ -23,6 +24,9 @@ const types: { id: string; body: string }[] = [
   { id: "quilt", body: "Fabric-compatible mod loader." },
   { id: "spigot", body: "Plugin server; Paper is usually better." },
 ];
+
+// fill colours a range slider's track up to the thumb (used by WebKit).
+const fill = (v: number, min: number, max: number) => ({ "--fill": `${((v - min) / (max - min)) * 100}%` }) as React.CSSProperties;
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -93,7 +97,10 @@ function ModrinthPicker({ selected, onSelect }: { selected?: Modpack; onSelect: 
                 </p>
                 <p className="truncate text-sm text-muted">{p.description}</p>
               </div>
-              <span className="ml-auto shrink-0 text-xs text-muted">{compact(p.downloads)} ↓</span>
+              <span className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted">
+                <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+                {compact(p.downloads)}
+              </span>
             </button>
           </li>
         ))}
@@ -218,7 +225,7 @@ export function NewServer() {
                       <input
                         type="radio"
                         name="type"
-                        className="mt-1 accent-[var(--accent)]"
+                        className="mt-1"
                         checked={type === t.id}
                         onChange={() => {
                           setType(t.id);
@@ -234,14 +241,11 @@ export function NewServer() {
                 </div>
                 <Field label="Minecraft version" hint="Players need the same version in their launcher.">
                   {versions.data ? (
-                    <Select value={version} onChange={(e) => setVersion(e.target.value)}>
-                      <option value="">Latest ({versions.data[0]})</option>
-                      {versions.data.map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </Select>
+                    <Select
+                      value={version}
+                      onChange={setVersion}
+                      options={[{ value: "", label: `Latest (${versions.data[0]})` }, ...versions.data.map((v) => ({ value: v, label: v }))]}
+                    />
                   ) : (
                     <Input placeholder={versions.isPending ? "Loading versions…" : "Latest"} value={version} onChange={(e) => setVersion(e.target.value)} />
                   )}
@@ -282,7 +286,8 @@ export function NewServer() {
                 max={50}
                 value={players}
                 onChange={(e) => setPlayers(Number(e.target.value))}
-                className="w-full accent-[var(--accent)]"
+                className="w-full"
+                style={fill(players, 1, 50)}
               />
             </Field>
           </div>
@@ -324,7 +329,8 @@ export function NewServer() {
                   max={Math.max(2, hostGB)}
                   value={memoryGB}
                   onChange={(e) => setMemoryGB(Number(e.target.value))}
-                  className="w-full accent-[var(--accent)]"
+                  className="w-full"
+                  style={fill(memoryGB, 1, Math.max(2, hostGB))}
                 />
               </Field>
             )}
@@ -346,8 +352,11 @@ export function NewServer() {
                 {w}
               </Alert>
             ))}
-            <details className="text-sm">
-              <summary className="cursor-pointer text-muted">Advanced</summary>
+            <details className="group text-sm">
+              <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+                <ChevronRight className="h-4 w-4 transition-transform duration-200 group-open:rotate-90" strokeWidth={1.75} />
+                Advanced
+              </summary>
               <div className="mt-3 max-w-xs">
                 <Field label="Port" hint="Leave empty to pick the next free one from 25565.">
                   <Input type="number" min={1024} max={65535} value={port} onChange={(e) => setPort(e.target.value)} placeholder="auto" />

@@ -23,6 +23,18 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByRole("link", { name: "New server" }).first().click();
   await expect(page.getByRole("heading", { name: "New server" })).toBeVisible();
   await expect(page.getByText(/GB RAM, \d+ CPU cores/)).toBeVisible({ timeout: 15_000 });
+  const version = page.getByRole("combobox", { name: "Minecraft version" });
+  await expect(version).toHaveText(/Latest/, { timeout: 15_000 });
+  await version.click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(page.getByRole("option", { selected: true })).toHaveText(/Latest/);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(version).not.toHaveText(/Latest/);
+  await version.press("Escape");
+
   await page.getByLabel("Server name").fill("");
   await page.getByLabel("Server name").pressSequentially("My Server-1!");
   await expect(page.getByLabel("Server name")).toHaveValue("my-server-1-");

@@ -78,14 +78,12 @@ export function Settings({ s, runJob }: TabProps) {
             <p className="text-sm text-muted">Now: {s.version}. A backup is made first. Minecraft can't move worlds to older versions.</p>
             <Field label="Upgrade to">
               {versions.data ? (
-                <Select value={version} onChange={(e) => setVersion(e.target.value)}>
-                  <option value="">Choose a version</option>
-                  {versions.data.map((v) => (
-                    <option key={v} value={v} disabled={v === s.version}>
-                      {v}
-                    </option>
-                  ))}
-                </Select>
+                <Select
+                  value={version}
+                  onChange={setVersion}
+                  placeholder="Choose a version"
+                  options={versions.data.map((v) => ({ value: v, label: v, disabled: v === s.version, hint: v === s.version ? "current" : undefined }))}
+                />
               ) : (
                 <Input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. 26.3" />
               )}
@@ -108,14 +106,14 @@ export function Settings({ s, runJob }: TabProps) {
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-muted">Give friends access from the Users page.</p>
+        <p className="mt-3 text-xs text-muted">Give friends access from the People page.</p>
       </Card>
 
       <Card title="Delete server" className="border-danger/40">
         <form onSubmit={remove} className="space-y-3">
           <p className="text-sm text-muted">Removes the server from minectl and deletes its container.</p>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={purge} onChange={(e) => setPurge(e.target.checked)} className="accent-[var(--danger)]" />
+            <input type="checkbox" checked={purge} onChange={(e) => setPurge(e.target.checked)} />
             Also delete the world and all files (can't be undone)
           </label>
           <Field label={`Type ${s.name} to confirm`}>

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { typeLabels } from "./format";
 
 export function cx(...parts: (string | false | null | undefined)[]) {
@@ -56,9 +58,197 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputClass, "w-full", props.className)} />;
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  // Pass a width class (e.g. w-32) to override the default full width.
-  return <select {...props} className={cx(inputClass, "pr-8", /\bw-/.test(props.className ?? "") ? "" : "w-full", props.className)} />;
+export interface Option {
+  value: string;
+  label: ReactNode;
+  disabled?: boolean;
+  hint?: string;
+}
+
+// Select is a custom dropdown (listbox). Focus stays on the button and the
+// highlighted option is announced with aria-activedescendant. The list is
+// rendered in a portal so cards with overflow-hidden don't clip it.
+export function Select({
+  value,
+  onChange,
+  options,
+  placeholder = "Select…",
+  className,
+  variant = "field",
+  disabled,
+  ...aria
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Option[];
+  placeholder?: string;
+  className?: string;
+  variant?: "field" | "inline";
+  disabled?: boolean;
+  "aria-label"?: string;
+  id?: string;
+}) {
+  const id = useId();
+  const btn = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; width: number; maxHeight: number }>();
+  const selected = options.find((o) => o.value === value);
+  const typed = useRef({ text: "", at: 0 });
+
+  const place = () => {
+    const r = btn.current?.getBoundingClientRect();
+    if (!r) return;
+    const below = window.innerHeight - r.bottom - 8;
+    const above = r.top - 8;
+    const width = Math.max(r.width, 160);
+    const left = Math.min(r.left, window.innerWidth - width - 8);
+    if (below < 220 && above > below) setPos({ left, bottom: window.innerHeight - r.top + 4, width, maxHeight: Math.min(320, above) });
+    else setPos({ left, top: r.bottom + 4, width, maxHeight: Math.min(320, below) });
+  };
+
+  const openList = () => {
+    if (disabled) return;
+    place();
+    setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+    setOpen(true);
+  };
+  const choose = (i: number) => {
+    const o = options[i];
+    if (!o || o.disabled) return;
+    onChange(o.value);
+    setOpen(false);
+    btn.current?.focus();
+  };
+  const move = (from: number, dir: 1 | -1) => {
+    for (let i = 1; i <= options.length; i++) {
+      const n = (from + dir * i + options.length) % options.length;
+      if (!options[n]?.disabled) return n;
+    }
+    return from;
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!btn.current?.contains(e.target as Node) && !list.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const reflow = (e: Event) => {
+      if (list.current?.contains(e.target as Node)) return;
+      place();
+    };
+    document.addEventListener("mousedown", close);
+    window.addEventListener("resize", reflow);
+    window.addEventListener("scroll", reflow, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", reflow);
+      window.removeEventListener("scroll", reflow, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) list.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [open, active]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!open) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        openList();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((a) => move(a, e.key === "ArrowDown" ? 1 : -1));
+    } else if (e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      setActive(e.key === "Home" ? move(-1, 1) : move(options.length, -1));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      choose(active);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    } else if (e.key.length === 1) {
+      const now = Date.now();
+      typed.current = { text: (now - typed.current.at < 600 ? typed.current.text : "") + e.key.toLowerCase(), at: now };
+      const i = options.findIndex((o) => !o.disabled && String(typeof o.label === "string" ? o.label : o.value).toLowerCase().startsWith(typed.current.text));
+      if (i >= 0) setActive(i);
+    }
+  };
+
+  const optionId = (i: number) => `${id}-opt-${i}`;
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        id={aria.id}
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? `${id}-list` : undefined}
+        aria-activedescendant={open && active >= 0 ? optionId(active) : undefined}
+        aria-label={aria["aria-label"]}
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+        className={cx(
+          "inline-flex items-center justify-between gap-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+          variant === "field"
+            ? cx(inputClass, "pr-2.5", open && "border-fg/40 ring-3 ring-fg/8", /\bw-/.test(className ?? "") ? "" : "w-full")
+            : "rounded px-1 py-0.5 text-fg hover:bg-hover",
+          className,
+        )}
+      >
+        <span className={cx("truncate", !selected && "text-subtle")}>{selected ? selected.label : placeholder}</span>
+        <ChevronDown className={cx("h-4 w-4 shrink-0 text-subtle transition-transform duration-200", open && "rotate-180")} strokeWidth={1.75} />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <ul
+            ref={list}
+            id={`${id}-list`}
+            role="listbox"
+            aria-label={aria["aria-label"]}
+            className={cx(
+              "fixed z-50 animate-scale-in overflow-y-auto rounded-lg border border-line bg-surface-2 p-1 text-sm shadow-pop",
+              pos.bottom !== undefined ? "origin-bottom" : "origin-top",
+            )}
+            style={{ left: pos.left, top: pos.top, bottom: pos.bottom, minWidth: pos.width, maxHeight: pos.maxHeight }}
+          >
+            {options.map((o, i) => (
+              <li
+                key={o.value}
+                id={optionId(i)}
+                data-index={i}
+                role="option"
+                aria-selected={o.value === value}
+                aria-disabled={o.disabled || undefined}
+                onMouseEnter={() => !o.disabled && setActive(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(i)}
+                className={cx(
+                  "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 select-none",
+                  o.disabled ? "cursor-not-allowed text-subtle" : i === active ? "bg-hover text-fg" : "text-muted",
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                {o.hint && <span className="text-xs text-subtle">{o.hint}</span>}
+                <Check className={cx("h-4 w-4 shrink-0 text-accent", o.value === value ? "opacity-100" : "opacity-0")} strokeWidth={2} />
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
@@ -193,16 +383,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
       }}
       className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-subtle transition-colors hover:bg-hover hover:text-fg"
     >
-      {copied ? (
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-          <path d="m3.5 8.5 3 3 6-7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-          <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-          <path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" />
-        </svg>
-      )}
+      {copied ? <Check className="h-3.5 w-3.5 animate-scale-in text-ok" strokeWidth={2} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />}
     </button>
   );
 }

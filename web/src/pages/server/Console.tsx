@@ -3,6 +3,7 @@ import { api, errorMessage, srv } from "../../api";
 import { useLogStream } from "../../hooks";
 import { cleanLog } from "../../format";
 import { Alert, Button, Input } from "../../ui";
+import { ArrowDown, CornerDownLeft } from "lucide-react";
 import { can, type TabProps } from "./ServerPage";
 
 function lineClass(line: string) {
@@ -78,7 +79,7 @@ export function Console({ s }: TabProps) {
           const el = e.currentTarget;
           setFollow(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
         }}
-        className="h-[60vh] min-h-72 overflow-auto rounded-lg bg-console p-3 font-mono text-xs leading-relaxed text-console-fg"
+        className="console-scroll h-[60vh] min-h-72 overflow-auto rounded-lg bg-console p-3 font-mono text-xs leading-relaxed text-console-fg"
         role="log"
         aria-live="off"
       >
@@ -92,7 +93,7 @@ export function Console({ s }: TabProps) {
       </div>
       {!follow && (
         <Button variant="ghost" className="text-xs" onClick={() => setFollow(true)}>
-          ↓ Jump to latest
+          <ArrowDown className="h-3.5 w-3.5" strokeWidth={2} /> Jump to latest
         </Button>
       )}
       {can(s, "operator") && (
@@ -108,7 +109,7 @@ export function Console({ s }: TabProps) {
             maxLength={1000}
           />
           <Button variant="primary" type="submit" busy={sending} disabled={!running || !cmd.trim()}>
-            Send
+            Send <CornerDownLeft className="h-3.5 w-3.5" strokeWidth={2} />
           </Button>
         </form>
       )}
