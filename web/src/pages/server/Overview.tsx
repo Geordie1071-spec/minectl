@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, srv, type Job } from "../../api";
 import { usePlayers, useStats } from "../../hooks";
-import { joinAddress } from "../../join";
+import { scopeHint, useJoinAddress } from "../../join";
 import { dateTime, formatBytes, formatMB, timeAgo, typeLabels } from "../../format";
 import { jobLabel } from "../../JobView";
 import { Card, CopyButton, Meter, Sparkline, StatusBadge, StatusDot } from "../../ui";
@@ -24,7 +24,7 @@ export function Overview({ s }: TabProps) {
   const players = usePlayers(s.name, running);
   const jobs = useQuery({ queryKey: ["jobs", s.name], queryFn: () => api.get<Job[]>(srv(s.name) + "/jobs"), refetchInterval: 15_000 });
   const cores = s.cpu_cores || 1;
-  const addr = joinAddress(s.port);
+  const { address: addr, scope } = useJoinAddress(s.port);
   const cpuNow = stats ? stats.cpu_percent / cores : 0;
 
   return (
@@ -54,6 +54,7 @@ export function Overview({ s }: TabProps) {
                 {addr}
                 <CopyButton text={addr} label="Copy address" />
               </dd>
+              {scopeHint[scope] && <p className="mt-1 text-xs text-subtle">{scopeHint[scope]}</p>}
             </div>
             <Detail label="Software">
               {typeLabels[s.type] ?? s.type} {s.version}

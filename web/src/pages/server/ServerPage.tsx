@@ -3,7 +3,7 @@ import { Route, Routes, useLocation, useParams } from "react-router-dom";
 import { api, errorMessage, srv, type Job, type Server } from "../../api";
 import { useServer } from "../../hooks";
 import { PageTitle } from "../../layout";
-import { joinAddress } from "../../join";
+import { useJoinAddress } from "../../join";
 import { typeLabels } from "../../format";
 import { JobBanner, jobLabel } from "../../JobView";
 import { Alert, Button, CopyButton, Skeleton, StatusBadge, TypeTile } from "../../ui";
@@ -26,6 +26,7 @@ export function ServerPage() {
   const { name = "" } = useParams();
   const location = useLocation();
   const { data: s, error, isPending, refetch } = useServer(name);
+  const { address: addr } = useJoinAddress(s?.port ?? 25565);
   const [localJob, setLocalJob] = useState<string>();
   const [actionError, setActionError] = useState("");
 
@@ -68,7 +69,6 @@ export function ServerPage() {
   const jobId = s.job?.id ?? localJob;
   const busy = !!s.job;
   const running = s.status === "running";
-  const addr = joinAddress(s.port);
 
   return (
     <>

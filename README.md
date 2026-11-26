@@ -82,9 +82,11 @@ Without a domain the panel only listens on `127.0.0.1:8080`. Reach it through an
 
 | | |
 |---|---|
-| `minectl serve` | Run the panel in the foreground (`--listen`, `--domain`, `--email`, `--trust-proxy`) |
+| `minectl serve` | Run the panel in the foreground (`--listen`, `--domain`, `--email`, `--trust-proxy`, `--public-address`) |
 | `sudo minectl serve install-service` | Run it at boot with systemd (same flags, plus `--user`) |
 | `minectl serve reset-password <user>` | Set a new random password if someone is locked out |
+
+**Join address.** The panel shows players the address to type into Minecraft. It uses the panel's own hostname, or this machine's network IP when you open the panel at `localhost`. To set it yourself, for example to a domain pointed at the machine, pass `--public-address play.example.com`.
 
 **Roles.** Admins can do everything. Other users only see the servers they've been given access to:
 - **Operator:** start, stop, restart, console, backups, and managing players.

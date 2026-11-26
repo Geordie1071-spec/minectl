@@ -34,6 +34,7 @@ var (
 	serveDomain     string
 	serveEmail      string
 	serveTrustProxy bool
+	servePublicAddr string
 	serviceUser     string
 )
 
@@ -74,6 +75,7 @@ func init() {
 		c.Flags().StringVar(&serveDomain, "domain", "", "domain for automatic HTTPS, e.g. panel.example.com")
 		c.Flags().StringVar(&serveEmail, "email", "", "email for Let's Encrypt expiry notices (optional)")
 		c.Flags().BoolVar(&serveTrustProxy, "trust-proxy", false, "trust X-Forwarded-For from a reverse proxy")
+		c.Flags().StringVar(&servePublicAddr, "public-address", "", "address players use to join, e.g. play.example.com (default: worked out automatically)")
 	}
 	installServiceCmd.Flags().StringVar(&serviceUser, "user", "", "user the panel runs as (default: the user running sudo)")
 	serveCmd.AddCommand(installServiceCmd, resetPasswordCmd)
@@ -111,13 +113,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	handler := api.New(api.Config{
-		Manager:     &service.Manager{D: d, St: st, Wait: true},
-		Store:       st,
-		Jobs:        runner,
-		SetupToken:  setupToken,
-		OnSetupDone: func() { _ = os.Remove(setupTokenPath()) },
-		TrustProxy:  serveTrustProxy,
-		UI:          web.Handler(),
+		Manager:       &service.Manager{D: d, St: st, Wait: true},
+		Store:         st,
+		Jobs:          runner,
+		SetupToken:    setupToken,
+		OnSetupDone:   func() { _ = os.Remove(setupTokenPath()) },
+		TrustProxy:    serveTrustProxy,
+		PublicAddress: strings.TrimSpace(servePublicAddr),
+		UI:            web.Handler(),
 	})
 
 	servers, url, err := buildServers(handler, sigCtx)
@@ -317,6 +320,9 @@ func runInstallService(cmd *cobra.Command, args []string) error {
 	}
 	if serveTrustProxy {
 		execArgs = append(execArgs, "--trust-proxy")
+	}
+	if servePublicAddr != "" {
+		execArgs = append(execArgs, "--public-address", servePublicAddr)
 	}
 	for _, a := range execArgs {
 		if strings.ContainsAny(a, " \t\n\"'\\%$") {

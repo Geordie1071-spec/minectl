@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { srv, type Server } from "../api";
 import { useMe, usePlayers, useServers } from "../hooks";
-import { joinAddress } from "../join";
+import { scopeHint, useJoinAddress } from "../join";
 import { formatMB, timeAgo, typeLabels } from "../format";
 import { jobLabel } from "../JobView";
 import { Alert, Button, CopyButton, Empty, Skeleton, StatusBadge, TypeTile } from "../ui";
@@ -10,7 +10,7 @@ import { Alert, Button, CopyButton, Empty, Skeleton, StatusBadge, TypeTile } fro
 function ServerCard({ s }: { s: Server }) {
   const running = s.status === "running" && !s.job;
   const players = usePlayers(s.name, running);
-  const addr = joinAddress(s.port);
+  const { address: addr, scope } = useJoinAddress(s.port);
   return (
     <Link
       to={srv(s.name)}
@@ -21,7 +21,9 @@ function ServerCard({ s }: { s: Server }) {
         <div className="min-w-0 flex-1">
           <h2 className="truncate leading-tight font-semibold">{s.name}</h2>
           <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[13px] text-muted">
-            <span className="truncate font-mono">{addr}</span>
+            <span className="truncate font-mono" title={scopeHint[scope] || undefined}>
+              {addr}
+            </span>
             <CopyButton text={addr} label="Copy address" />
           </div>
         </div>

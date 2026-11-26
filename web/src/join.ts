@@ -1,7 +1,37 @@
-// The panel usually runs on the same machine as the servers, so the panel's
-// hostname is the best guess for what players type into Minecraft.
-export function joinAddress(port: number): string {
-  const host = window.location.hostname;
-  const shown = host === "localhost" || host === "127.0.0.1" ? "<server-ip>" : host;
-  return port === 25565 ? shown : `${shown}:${port}`;
+import { useQuery } from "@tanstack/react-query";
+import { api } from "./api";
+
+export type JoinScope = "public" | "lan" | "local";
+
+export interface JoinAddress {
+  address: string;
+  scope: JoinScope;
 }
+
+const isLocal = (host: string) => host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
+
+function format(host: string, port: number) {
+  return port === 25565 ? host : `${host}:${port}`;
+}
+
+// useJoinAddress works out what players type into Minecraft: the address set
+// with --public-address, else the panel's own hostname (the servers run on the
+// same machine), else this machine's address on the local network.
+export function useJoinAddress(port: number): JoinAddress {
+  const { data } = useQuery({
+    queryKey: ["address"],
+    queryFn: () => api.get<{ public: string; lan: string }>("/address"),
+    staleTime: Infinity,
+  });
+  if (data?.public) return { address: format(data.public, port), scope: "public" };
+  const host = window.location.hostname;
+  if (!isLocal(host)) return { address: format(host, port), scope: "public" };
+  if (data?.lan) return { address: format(data.lan, port), scope: "lan" };
+  return { address: format("localhost", port), scope: "local" };
+}
+
+export const scopeHint: Record<JoinScope, string> = {
+  public: "",
+  lan: "Works for players on your network. For friends elsewhere, forward this port on your router and share your public IP.",
+  local: "Only works on this computer.",
+};
