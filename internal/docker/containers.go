@@ -9,7 +9,6 @@ import (
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
@@ -95,7 +94,7 @@ func ContainerMemoryMB(heapMB int) int {
 }
 
 func (c *Client) StartContainer(ctx context.Context, containerID string) error {
-	return c.cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+	return c.cli.ContainerStart(ctx, containerID, container.StartOptions{})
 }
 
 func (c *Client) StopContainer(ctx context.Context, containerID string, timeoutSec *int) error {
@@ -107,7 +106,7 @@ func (c *Client) StopContainer(ctx context.Context, containerID string, timeoutS
 }
 
 func (c *Client) RemoveContainer(ctx context.Context, containerID string) error {
-	return c.cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
+	return c.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 }
 
 func (c *Client) InspectContainer(ctx context.Context, containerID string) (interface{}, error) {
@@ -115,7 +114,7 @@ func (c *Client) InspectContainer(ctx context.Context, containerID string) (inte
 }
 
 func (c *Client) ContainerByName(ctx context.Context, name string) (string, error) {
-	containers, err := c.cli.ContainerList(ctx, types.ContainerListOptions{All: true})
+	containers, err := c.cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +130,7 @@ func (c *Client) ContainerByName(ctx context.Context, name string) (string, erro
 }
 
 func (c *Client) ListContainers(ctx context.Context) ([]string, error) {
-	containers, err := c.cli.ContainerList(ctx, types.ContainerListOptions{All: true})
+	containers, err := c.cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
 		return nil, err
 	}

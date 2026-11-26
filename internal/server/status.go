@@ -14,7 +14,7 @@ func SyncStatus(ctx context.Context, d *docker.Client, st *store.Store, s *domai
 	if s.Status == domain.StatusCreating {
 		return nil
 	}
-	status := s.Status
+	var status string
 	containerID := s.ContainerID
 	if containerID == "" {
 		status = domain.StatusStopped

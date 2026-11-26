@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
@@ -18,7 +18,7 @@ func (c *Client) GetLogs(ctx context.Context, containerID string, tail int) ([]s
 	if tail > 0 && tail <= 10000 {
 		tailStr = fmt.Sprintf("%d", tail)
 	}
-	rdr, err := c.cli.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
+	rdr, err := c.cli.ContainerLogs(ctx, containerID, container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Tail:       tailStr,
@@ -44,22 +44,22 @@ func (c *Client) GetLogs(ctx context.Context, containerID string, tail int) ([]s
 }
 
 func (c *Client) StreamLogs(ctx context.Context, containerID string, follow bool, outCh chan<- string) error {
-	return c.streamLogs(ctx, containerID, types.ContainerLogsOptions{Follow: follow}, outCh)
+	return c.streamLogs(ctx, containerID, container.LogsOptions{Follow: follow}, outCh)
 }
 
 func (c *Client) FollowLogs(ctx context.Context, containerID string, tail int, outCh chan<- string) error {
-	return c.streamLogs(ctx, containerID, types.ContainerLogsOptions{Follow: true, Tail: strconv.Itoa(tail)}, outCh)
+	return c.streamLogs(ctx, containerID, container.LogsOptions{Follow: true, Tail: strconv.Itoa(tail)}, outCh)
 }
 
 func (c *Client) StreamLogsSince(ctx context.Context, containerID string, follow bool, since time.Time, outCh chan<- string) error {
-	opts := types.ContainerLogsOptions{Follow: follow}
+	opts := container.LogsOptions{Follow: follow}
 	if !since.IsZero() {
 		opts.Since = strconv.FormatInt(since.Unix(), 10)
 	}
 	return c.streamLogs(ctx, containerID, opts, outCh)
 }
 
-func (c *Client) streamLogs(ctx context.Context, containerID string, opts types.ContainerLogsOptions, outCh chan<- string) error {
+func (c *Client) streamLogs(ctx context.Context, containerID string, opts container.LogsOptions, outCh chan<- string) error {
 	opts.ShowStdout = true
 	opts.ShowStderr = true
 	rdr, err := c.cli.ContainerLogs(ctx, containerID, opts)
