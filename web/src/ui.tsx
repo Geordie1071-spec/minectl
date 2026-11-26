@@ -26,7 +26,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
         size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-sm",
         variants[variant],
         className,
@@ -107,13 +107,17 @@ export function Card({
   );
 }
 
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cx("skeleton", className)} aria-hidden="true" />;
+}
+
 export function Alert({ kind = "error", children }: { kind?: "error" | "warn" | "info"; children: ReactNode }) {
   const styles = {
     error: "bg-danger-soft text-danger border-danger/25",
     warn: "bg-warn-soft text-warn border-warn/25",
     info: "bg-accent-soft text-fg border-accent/25",
   }[kind];
-  return <div className={cx("rounded-md border px-3 py-2.5 text-sm break-words whitespace-pre-wrap", styles)}>{children}</div>;
+  return <div className={cx("animate-fade-in rounded-md border px-3 py-2.5 text-sm break-words whitespace-pre-wrap", styles)}>{children}</div>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -134,10 +138,21 @@ export function StatusDot({ status, className }: { status: string; className?: s
   return <span className={cx("inline-block h-2 w-2 shrink-0 rounded-full", dotStyles[status] ?? "bg-subtle", className)} aria-hidden="true" />;
 }
 
+// LiveDot is a status dot that gently pulses while a server is running.
+export function LiveDot({ status }: { status: string }) {
+  if (status !== "running") return <StatusDot status={status} />;
+  return (
+    <span className="relative inline-flex h-2 w-2 shrink-0" aria-hidden="true">
+      <span className="absolute inset-0 animate-ping-soft rounded-full bg-ok" />
+      <span className="relative inline-block h-2 w-2 rounded-full bg-ok" />
+    </span>
+  );
+}
+
 export function StatusBadge({ status, busy }: { status: string; busy?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px] font-medium whitespace-nowrap">
-      {busy ? <Spinner className="h-3 w-3 text-warn" /> : <StatusDot status={status} />}
+      {busy ? <Spinner className="h-3 w-3 text-warn" /> : <LiveDot status={status} />}
       <span className={busy || status === "running" ? "text-fg" : "text-muted"}>{busy ?? statusLabels[status] ?? status}</span>
     </span>
   );
@@ -153,7 +168,7 @@ export function Badge({ children, className }: { children: ReactNode; className?
 
 export function Empty({ title, children, icon }: { title: string; children?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center rounded-lg border border-dashed border-line-strong bg-surface px-6 py-16 text-center">
+    <div className="flex animate-fade-up flex-col items-center rounded-lg border border-dashed border-line-strong bg-surface px-6 py-16 text-center">
       {icon && <div className="mb-4">{icon}</div>}
       <p className="text-base font-semibold tracking-tight">{title}</p>
       {children && <div className="mt-1.5 max-w-sm text-sm text-muted">{children}</div>}

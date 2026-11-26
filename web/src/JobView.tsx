@@ -26,8 +26,8 @@ export function jobLabel(kind: string) {
 
 function EventLine({ e }: { e: JobEvent }) {
   if (e.type === "warn") return <Alert kind="warn">{e.message}</Alert>;
-  if (e.type === "stage") return <p className="pt-2 text-sm font-medium">{e.message}</p>;
-  return <p className="text-sm whitespace-pre-wrap text-muted">{e.message}</p>;
+  if (e.type === "stage") return <p className="animate-fade-up pt-2 text-sm font-medium">{e.message}</p>;
+  return <p className="animate-fade-up text-sm whitespace-pre-wrap text-muted">{e.message}</p>;
 }
 
 export function JobView({ id, compact }: { id: string; compact?: boolean }) {
@@ -49,8 +49,8 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         {status === "running" && <Spinner className="h-5 w-5 text-accent" />}
-        {status === "succeeded" && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ok text-xs text-white">✓</span>}
-        {status === "failed" && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-white">!</span>}
+        {status === "succeeded" && <span className="flex h-5 w-5 animate-scale-in items-center justify-center rounded-full bg-ok text-xs text-white">✓</span>}
+        {status === "failed" && <span className="flex h-5 w-5 animate-scale-in items-center justify-center rounded-full bg-danger text-xs text-white">!</span>}
         <div className="min-w-0">
           <p className="font-medium">
             {job ? `${jobLabel(job.kind)} ${job.server}` : "Loading…"}
@@ -74,7 +74,7 @@ export function JobView({ id, compact }: { id: string; compact?: boolean }) {
             {progress.percent !== undefined && <span>{progress.percent}%</span>}
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress.percent ?? 5}%` }} />
+            <div className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out" style={{ width: `${progress.percent ?? 5}%` }} />
           </div>
         </div>
       )}

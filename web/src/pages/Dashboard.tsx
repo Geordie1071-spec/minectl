@@ -5,7 +5,7 @@ import { useMe, usePlayers, useServers } from "../hooks";
 import { joinAddress } from "../join";
 import { formatMB, timeAgo, typeLabels } from "../format";
 import { jobLabel } from "../JobView";
-import { Alert, Button, CopyButton, Empty, Spinner, StatusBadge, TypeTile } from "../ui";
+import { Alert, Button, CopyButton, Empty, Skeleton, StatusBadge, TypeTile } from "../ui";
 
 function ServerCard({ s }: { s: Server }) {
   const running = s.status === "running" && !s.job;
@@ -14,10 +14,10 @@ function ServerCard({ s }: { s: Server }) {
   return (
     <Link
       to={srv(s.name)}
-      className="group flex flex-col rounded-lg border border-line bg-surface p-5 shadow-card transition-colors hover:border-line-strong"
+      className="group flex flex-col rounded-lg border border-line bg-surface p-5 shadow-card transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-pop"
     >
       <div className="flex items-start gap-3">
-        <TypeTile type={s.type} />
+        <TypeTile type={s.type} className="h-8 w-8 text-[13px] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate leading-tight font-semibold">{s.name}</h2>
           <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[13px] text-muted">
@@ -100,7 +100,16 @@ export function Dashboard() {
       </div>
 
       {error && <Alert>{error.message}</Alert>}
-      {isPending && <Spinner />}
+      {isPending && (
+        <div className="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+          <Skeleton className="h-52" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-40" />
+            ))}
+          </div>
+        </div>
+      )}
 
       {data && data.length === 0 && (
         <Empty
@@ -124,13 +133,13 @@ export function Dashboard() {
 
       {data && data.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
-          <aside className="order-2 space-y-6 lg:order-none">
+          <aside className="order-2 animate-fade-up space-y-6 lg:order-none">
             <Usage servers={data} />
           </aside>
           <div>
             <h2 className="mb-3 text-sm font-semibold">Servers</h2>
             {shown && shown.length === 0 && <p className="text-sm text-muted">No servers match “{q}”.</p>}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="stagger grid gap-4 sm:grid-cols-2">
               {shown?.map((s) => (
                 <ServerCard key={s.name} s={s} />
               ))}

@@ -46,7 +46,7 @@ export function Account() {
   return (
     <>
       <PageTitle description="Your password and personal API tokens.">Account</PageTitle>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="stagger grid gap-4 lg:grid-cols-2">
         <Card title={`Password for ${me?.user.username ?? ""}`}>
           <form onSubmit={changePassword} className="space-y-3">
             <Field label="Current password">

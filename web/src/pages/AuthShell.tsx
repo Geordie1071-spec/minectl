@@ -5,9 +5,9 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
       <div className="grid-bg pointer-events-none absolute inset-0" aria-hidden="true" />
-      <div className="relative w-full max-w-[22rem]">
+      <div className="stagger relative w-full max-w-[22rem]">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Mark className="h-12 w-12" />
+          <Mark className="h-12 w-12 animate-scale-in" />
           <h1 className="mt-6 text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-2 text-sm leading-relaxed text-muted">{subtitle}</p>}
         </div>

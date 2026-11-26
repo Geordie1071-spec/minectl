@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Route, Routes, useParams } from "react-router-dom";
+import { Route, Routes, useLocation, useParams } from "react-router-dom";
 import { api, errorMessage, srv, type Job, type Server } from "../../api";
 import { useServer } from "../../hooks";
 import { PageTitle } from "../../layout";
 import { joinAddress } from "../../join";
 import { typeLabels } from "../../format";
 import { JobBanner, jobLabel } from "../../JobView";
-import { Alert, Button, CopyButton, Spinner, StatusBadge, TypeTile } from "../../ui";
+import { Alert, Button, CopyButton, Skeleton, StatusBadge, TypeTile } from "../../ui";
 import { Overview } from "./Overview";
 import { Console } from "./Console";
 import { PlayersTab } from "./Players";
@@ -24,11 +24,25 @@ export const can = (s: Server, role: keyof typeof rank) => rank[s.role] >= rank[
 
 export function ServerPage() {
   const { name = "" } = useParams();
+  const location = useLocation();
   const { data: s, error, isPending, refetch } = useServer(name);
   const [localJob, setLocalJob] = useState<string>();
   const [actionError, setActionError] = useState("");
 
-  if (isPending) return <Spinner />;
+  if (isPending) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-12" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+        <Skeleton className="h-52" />
+      </div>
+    );
+  }
   if (error || !s) {
     return (
       <>
@@ -60,7 +74,7 @@ export function ServerPage() {
     <>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <TypeTile type={s.type} className="h-12 w-12 rounded-lg text-lg" />
+          <TypeTile type={s.type} className="h-12 w-12 animate-scale-in rounded-lg text-lg" />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h1 className="truncate text-[28px] leading-tight font-semibold tracking-tight">{s.name}</h1>
@@ -112,6 +126,7 @@ export function ServerPage() {
         </div>
       )}
 
+      <div key={location.pathname} className="animate-fade-up">
       <Routes>
         <Route index element={<Overview s={s} runJob={runJob} />} />
         <Route path="console" element={<Console s={s} runJob={runJob} />} />
@@ -120,6 +135,7 @@ export function ServerPage() {
         <Route path="mods" element={<Mods s={s} runJob={runJob} />} />
         <Route path="settings" element={<Settings s={s} runJob={runJob} />} />
       </Routes>
+      </div>
     </>
   );
 }

@@ -182,7 +182,7 @@ export function NewServer() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageTitle description="Run a server type, a Modrinth modpack, or a CurseForge pack.">New server</PageTitle>
-      <form onSubmit={submit} className="space-y-6">
+      <form onSubmit={submit} className="stagger space-y-6">
         <Card title="1. What do you want to run?">
           <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
             {sources.map((s) => (
@@ -193,7 +193,7 @@ export function NewServer() {
                 aria-checked={source === s.id}
                 onClick={() => setSource(s.id)}
                 className={cx(
-                  "rounded-md border p-3 text-left transition-colors",
+                  "rounded-md border p-3 text-left transition-[background-color,border-color,transform] duration-200 active:scale-[0.98]",
                   source === s.id ? "border-accent bg-accent-soft" : "border-line hover:bg-surface-2",
                 )}
               >

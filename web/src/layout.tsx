@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, NavLink, Navigate, Outlet, useLocation, useMatch, useNavigate } from "react-router-dom";
+import { Link, Navigate, Outlet, matchPath, useLocation, useMatch, useNavigate } from "react-router-dom";
 import { api, ApiError, srv } from "./api";
 import { useMe, useServer } from "./hooks";
 import { isModded } from "./format";
-import { Button, Spinner, StatusDot, TypeTile, cx } from "./ui";
+import { Button, LiveDot, Spinner, TypeTile, cx } from "./ui";
 
 export function Logo({ onDark, className = "h-7", wordmarkOnly }: { onDark?: boolean; className?: string; wordmarkOnly?: boolean }) {
   if (wordmarkOnly) {
@@ -62,30 +62,56 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function Slash() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-line-strong" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <path d="M16.88 3.549L7.12 20.451" strokeLinecap="round" />
-    </svg>
-  );
+interface Tab {
+  to: string;
+  label: string;
+  end?: boolean;
 }
 
-function TabLink({ to, end, children }: { to: string; end?: boolean; children: ReactNode }) {
+// PillTabs shows tabs with a highlight that slides to the active one.
+function PillTabs({ tabs }: { tabs: Tab[] }) {
+  const { pathname } = useLocation();
+  const refs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const [box, setBox] = useState<{ left: number; width: number } | null>(null);
+  const active = tabs.findIndex((t) => matchPath({ path: t.to, end: t.end ?? false }, pathname));
+  const key = tabs.map((t) => t.to).join("|");
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = refs.current[active];
+      setBox(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [active, key]);
+
   return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        cx(
-          "relative flex h-12 shrink-0 items-center px-0.5 text-sm transition-colors",
-          isActive
-            ? "text-fg after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-fg"
-            : "text-muted hover:text-fg",
-        )
-      }
-    >
-      <span className="rounded-md px-2.5 py-1.5 hover:bg-hover">{children}</span>
-    </NavLink>
+    <div className="relative flex items-center">
+      {box && (
+        <span
+          className="absolute inset-y-0 rounded-full bg-hover ring-1 ring-line transition-[left,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ left: box.left, width: box.width }}
+          aria-hidden="true"
+        />
+      )}
+      {tabs.map((t, i) => (
+        <Link
+          key={t.to}
+          to={t.to}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          aria-current={i === active ? "page" : undefined}
+          className={cx(
+            "relative z-10 rounded-full px-3.5 py-1.5 text-sm whitespace-nowrap transition-colors duration-200",
+            i === active ? "font-medium text-fg" : "text-muted hover:text-fg",
+          )}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -114,12 +140,12 @@ function UserMenu({ username, isAdmin, onLogout }: { username: string; isAdmin: 
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Account menu for ${username}`}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#4687ff] via-[#71f0f4] to-[#2c6bed] text-[13px] font-semibold text-white uppercase ring-1 ring-line transition hover:ring-line-strong"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#4687ff] via-[#71f0f4] to-[#2c6bed] text-[13px] font-semibold text-white uppercase ring-1 ring-line transition hover:scale-105 hover:ring-line-strong active:scale-95"
       >
         {username.slice(0, 1)}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-line bg-surface p-1.5 shadow-pop">
+        <div role="menu" className="absolute right-0 z-30 mt-3 w-60 origin-top-right animate-scale-in overflow-hidden rounded-xl border border-line bg-surface p-1.5 shadow-pop">
           <div className="px-2.5 py-2">
             <p className="text-sm font-medium">{username}</p>
             <p className="text-[13px] text-muted">{isAdmin ? "Admin" : "Member"}</p>
@@ -141,42 +167,53 @@ function UserMenu({ username, isAdmin, onLogout }: { username: string; isAdmin: 
   );
 }
 
-function ServerCrumb({ name }: { name: string }) {
+function ServerChip({ name }: { name: string }) {
   const { data } = useServer(name);
   return (
-    <Link to={srv(name)} className="flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 hover:bg-hover">
-      {data && <TypeTile type={data.type} className="h-5 w-5 rounded text-[10px]" />}
-      <span className="truncate font-medium">{name}</span>
-      {data && <StatusDot status={data.job ? "creating" : data.status} />}
+    <Link
+      to={srv(name)}
+      className="flex min-w-0 shrink-0 animate-fade-in items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors hover:bg-hover sm:pr-3"
+    >
+      {data ? <TypeTile type={data.type} className="h-6 w-6 rounded-full text-[11px]" /> : <span className="h-6 w-6 rounded-full bg-surface-2" />}
+      <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">{name}</span>
+      {data && <LiveDot status={data.job ? "creating" : data.status} />}
     </Link>
   );
 }
 
-function ServerTabs({ name }: { name: string }) {
-  const { data: s } = useServer(name);
+function useServerTabs(name: string | undefined): Tab[] {
+  const { data: s } = useServer(name ?? "");
+  if (!name) return [];
   const base = srv(name);
   const admin = s?.role === "admin";
-  return (
-    <>
-      <TabLink to={base} end>
-        Overview
-      </TabLink>
-      <TabLink to={base + "/console"}>Console</TabLink>
-      <TabLink to={base + "/players"}>Players</TabLink>
-      <TabLink to={base + "/backups"}>Backups</TabLink>
-      {admin && s && (isModded(s.type) || s.modpack) && <TabLink to={base + "/mods"}>Mods</TabLink>}
-      {admin && <TabLink to={base + "/settings"}>Settings</TabLink>}
-    </>
-  );
+  const tabs: Tab[] = [
+    { to: base, label: "Overview", end: true },
+    { to: base + "/console", label: "Console" },
+    { to: base + "/players", label: "Players" },
+    { to: base + "/backups", label: "Backups" },
+  ];
+  if (admin && s && (isModded(s.type) || s.modpack)) tabs.push({ to: base + "/mods", label: "Mods" });
+  if (admin) tabs.push({ to: base + "/settings", label: "Settings" });
+  return tabs;
+}
+
+function Divider() {
+  return <span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden="true" />;
 }
 
 export function Layout() {
   const { data } = useMe();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const user = data?.user;
-  const serverMatch = useMatch("/servers/:name/*");
-  const serverName = serverMatch?.params.name;
+  const serverName = useMatch("/servers/:name/*")?.params.name;
+  const serverTabs = useServerTabs(serverName);
+
+  const globalTabs: Tab[] = [
+    { to: "/", label: "Servers", end: true },
+    ...(user?.is_admin ? [{ to: "/users", label: "Users" }, { to: "/audit", label: "Activity" }] : []),
+  ];
 
   const logout = async () => {
     await api.post("/auth/logout").catch(() => {});
@@ -186,44 +223,47 @@ export function Layout() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-line bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:px-6">
-          <Link to="/" className="flex shrink-0 items-center gap-2.5 rounded-md p-1 hover:bg-hover" aria-label="minectl home">
-            <Mark className="h-7 w-7" />
-            <span className="hidden sm:block">
-              <Logo className="h-[18px] [&]:max-w-none" wordmarkOnly />
+      <header className="sticky top-0 z-20 flex justify-center px-3 pt-4 pb-2 sm:px-4">
+        <div className="flex h-14 max-w-full animate-fade-in items-center gap-1 rounded-full border border-line bg-surface/80 py-2 pr-2 pl-3 shadow-pop backdrop-blur-xl">
+          <Link
+            to="/"
+            className={cx("shrink-0 items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors hover:bg-hover", serverName ? "hidden sm:flex" : "flex")}
+            aria-label="minectl home"
+          >
+            <Mark className="h-7 w-7 transition-transform duration-300 hover:-rotate-12" />
+            <span className="hidden md:block">
+              <Logo className="h-4" wordmarkOnly />
             </span>
           </Link>
-          <Slash />
-          <Link to="/" className="shrink-0 rounded-md px-1.5 py-1 font-medium hover:bg-hover">
-            Servers
-          </Link>
+          <span className={serverName ? "hidden sm:contents" : "contents"}>
+            <Divider />
+          </span>
           {serverName && (
             <>
-              <Slash />
-              <ServerCrumb name={serverName} />
+              <Link
+                to="/"
+                aria-label="All servers"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-fg"
+              >
+                <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M10 3.5 5.5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </Link>
+              <ServerChip name={serverName} />
+              <Divider />
             </>
           )}
-          <div className="ml-auto flex items-center gap-2">
-            {user && <UserMenu username={user.username} isAdmin={user.is_admin} onLogout={logout} />}
-          </div>
+          <nav
+            className="min-w-0 overflow-x-auto [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_80%,transparent)]"
+            aria-label="Sections"
+          >
+            <PillTabs key={serverName ? "server" : "global"} tabs={serverName ? serverTabs : globalTabs} />
+          </nav>
+          <Divider />
+          {user && <UserMenu username={user.username} isAdmin={user.is_admin} onLogout={logout} />}
         </div>
-        <nav className="mx-auto -mb-px flex max-w-6xl gap-1 overflow-x-auto px-2.5 sm:px-4.5" aria-label="Sections">
-          {serverName ? (
-            <ServerTabs name={serverName} />
-          ) : (
-            <>
-              <TabLink to="/" end>
-                Servers
-              </TabLink>
-              {user?.is_admin && <TabLink to="/users">Users</TabLink>}
-              {user?.is_admin && <TabLink to="/audit">Activity</TabLink>}
-              <TabLink to="/account">Account</TabLink>
-            </>
-          )}
-        </nav>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <main key={location.pathname.split("/").slice(0, 3).join("/")} className="mx-auto max-w-6xl animate-fade-up px-4 pt-6 pb-16 sm:px-6 sm:pt-8">
         <Outlet />
       </main>
     </div>

@@ -28,7 +28,7 @@ export function Overview({ s }: TabProps) {
   const cpuNow = stats ? stats.cpu_percent / cores : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="stagger space-y-6">
       <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
         <div className="grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           <div className="flex min-h-48 flex-col justify-between border-b border-line bg-surface-2 p-5 md:border-r md:border-b-0">
