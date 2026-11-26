@@ -6,8 +6,7 @@ import (
 	"os"
 
 	"github.com/Geordie1071-spec/minectl/internal/modrinth"
-	"github.com/Geordie1071-spec/minectl/internal/server"
-	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -63,39 +62,31 @@ func init() {
 func runModsAdd(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signalContext()
 	defer cancel()
-	st := getStore()
-	mod, err := server.AddMod(ctx, st, args[0], args[1], modsVersion)
-	if err != nil {
-		return err
-	}
-	if !quiet {
-		fmt.Println("Mod added:", mod.ModName, "(required dependencies are installed automatically)")
-	}
-	return applyModChange(ctx, st, args[0])
+	m, closeFn := modsManager(ctx)
+	defer closeFn()
+	ev := newEvents("")
+	_, err := m.AddMod(ctx, args[0], args[1], modsVersion, ev)
+	ev.finish()
+	return err
 }
 
 func runModsRemove(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signalContext()
 	defer cancel()
-	st := getStore()
-	mod, err := server.RemoveMod(st, args[0], args[1])
-	if err != nil {
-		return err
-	}
-	if !quiet {
-		fmt.Println("Mod removed:", mod.ModName)
-	}
-	return applyModChange(ctx, st, args[0])
+	m, closeFn := modsManager(ctx)
+	defer closeFn()
+	ev := newEvents("")
+	_, err := m.RemoveMod(ctx, args[0], args[1], ev)
+	ev.finish()
+	return err
 }
 
-func applyModChange(ctx context.Context, st *store.Store, name string) error {
-	d, err := getDockerClient(ctx)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Saved, but Docker isn't reachable; the change applies the next time the container is recreated.")
-		return nil
+func modsManager(ctx context.Context) (*service.Manager, func()) {
+	if m, closeFn, err := newManager(ctx); err == nil {
+		return m, closeFn
 	}
-	defer d.Close()
-	return applyServerChange(ctx, d, st, name)
+	st := getStore()
+	return &service.Manager{St: st, Holder: fmt.Sprintf("cli (pid %d)", os.Getpid()), Wait: !noWait}, func() { _ = st.Close() }
 }
 
 func runModsList(cmd *cobra.Command, args []string) error {

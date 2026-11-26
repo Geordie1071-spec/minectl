@@ -181,6 +181,9 @@ func TestServerLifecycle(t *testing.T) {
 		if out := e.mustRun("start", e.name); !strings.Contains(out, "Ready in") {
 			t.Fatalf("start did not report ready:\n%s", out)
 		}
+		if out, err := e.run("exec", e.name, "list"); err != nil || !strings.Contains(out, "players online") {
+			t.Fatalf("server should accept commands as soon as start reports ready, err=%v", err)
+		}
 	})
 
 	t.Run("logs and stats", func(t *testing.T) {
@@ -196,6 +199,25 @@ func TestServerLifecycle(t *testing.T) {
 		e.mustRun("resize", e.name, "--memory", "1536M")
 		if s := e.server(); s.MemoryMB != 1536 || s.Status != "running" {
 			t.Fatalf("after resize: %+v", s)
+		}
+	})
+
+	t.Run("concurrent operations are locked", func(t *testing.T) {
+		restart := exec.Command(binary, "restart", e.name)
+		restart.Env = append(os.Environ(), "MINECTL_CONFIG_DIR="+e.configDir)
+		if err := restart.Start(); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(3 * time.Second)
+		out, err := e.run("stop", e.name)
+		if err == nil || !strings.Contains(out, "is busy: cli") || !strings.Contains(out, "restart") {
+			t.Errorf("stop during restart should report the lock, err=%v", err)
+		}
+		if err := restart.Wait(); err != nil {
+			t.Fatalf("restart failed: %v", err)
+		}
+		if s := e.server(); s.Status != "running" {
+			t.Fatalf("after restart: %+v", s)
 		}
 	})
 

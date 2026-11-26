@@ -9,9 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Geordie1071-spec/minectl/internal/docker"
-	"github.com/Geordie1071-spec/minectl/internal/server"
-	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -46,18 +44,17 @@ func init() {
 func runDelete(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signalContext()
 	defer cancel()
-	d, err := getDockerClient(ctx)
+	m, closeFn, err := newManager(ctx)
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-	st := getStore()
+	defer closeFn()
 
 	if !deleteAll {
-		return deleteOne(ctx, d, st, args[0])
+		return deleteOne(ctx, m, args[0])
 	}
 
-	servers, err := st.ListServers()
+	servers, err := m.St.ListServers()
 	if err != nil {
 		return err
 	}
@@ -88,7 +85,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	var failed []string
 	for _, s := range servers {
-		if err := deleteOne(ctx, d, st, s.Name); err != nil {
+		if err := deleteOne(ctx, m, s.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "Error deleting %s: %v\n", s.Name, err)
 			failed = append(failed, s.Name)
 		}
@@ -99,10 +96,10 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func deleteOne(ctx context.Context, d *docker.Client, st *store.Store, name string) error {
-	pb := NewProgressBar(name)
-	err := server.Delete(ctx, d, st, name, deletePurge, pb.ServerProgress())
-	pb.End()
+func deleteOne(ctx context.Context, m *service.Manager, name string) error {
+	ev := newEvents(name)
+	err := m.Delete(ctx, name, deletePurge, ev)
+	ev.finish()
 	if err != nil {
 		return err
 	}

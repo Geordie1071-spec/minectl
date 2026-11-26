@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Geordie1071-spec/minectl/internal/server"
-	"time"
-
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 )
@@ -43,13 +41,12 @@ func init() {
 func runBackupCreate(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signalContext()
 	defer cancel()
-	d, err := getDockerClient(ctx)
+	m, closeFn, err := newManager(ctx)
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-	st := getStore()
-	b, err := server.CreateBackup(ctx, d, st, args[0])
+	defer closeFn()
+	b, err := m.CreateBackup(ctx, args[0])
 	if err != nil {
 		return err
 	}
@@ -74,18 +71,13 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 func runBackupRestore(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signalContext()
 	defer cancel()
-	d, err := getDockerClient(ctx)
+	m, closeFn, err := newManager(ctx)
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-	st := getStore()
-	before := time.Now()
-	if err := server.RestoreBackup(ctx, d, st, args[0], args[1]); err != nil {
-		return err
-	}
-	if !quiet {
-		fmt.Println("Restored", args[1])
-	}
-	return waitIfRestarted(ctx, d, st, args[0], before)
+	defer closeFn()
+	ev := newEvents("")
+	err = m.RestoreBackup(ctx, args[0], args[1], ev)
+	ev.finish()
+	return err
 }
