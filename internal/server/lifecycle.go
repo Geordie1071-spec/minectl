@@ -53,6 +53,7 @@ func Start(ctx context.Context, d *docker.Client, st *store.Store, name string, 
 			return nil, err
 		}
 	}
+	startedAt := time.Now().UTC()
 	if err := d.StartContainer(ctx, s.ContainerID); err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func Start(ctx context.Context, d *docker.Client, st *store.Store, name string, 
 	}
 
 	s.Status = domain.StatusRunning
-	s.LastStartedAt = time.Now().UTC()
+	s.LastStartedAt = startedAt
 	reportProgress(progress, 100, "running")
 	return s, st.SaveServer(s)
 }

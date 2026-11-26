@@ -3,6 +3,7 @@ package docker
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDecodePullProgress(t *testing.T) {
@@ -44,5 +45,12 @@ func TestContainerMemoryMB(t *testing.T) {
 	}
 	if got := ContainerMemoryMB(8192); got != 10240 {
 		t.Errorf("8192 -> %d, want 10240", got)
+	}
+}
+
+func TestDockerTimestamp(t *testing.T) {
+	ts := time.Date(2026, 11, 26, 18, 41, 44, 205000000, time.UTC)
+	if got := DockerTimestamp(ts); got != "1795718504.205000000" {
+		t.Errorf("DockerTimestamp = %q", got)
 	}
 }

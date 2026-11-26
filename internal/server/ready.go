@@ -30,7 +30,7 @@ func WaitReady(ctx context.Context, d *docker.Client, s *domain.Server, since ti
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
-		streamErr <- d.StreamLogsSince(streamCtx, s.ContainerID, true, since.Add(-time.Second), lines)
+		streamErr <- d.StreamLogsSince(streamCtx, s.ContainerID, true, since, lines)
 		close(lines)
 	}()
 
