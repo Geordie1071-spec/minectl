@@ -22,6 +22,7 @@ import (
 	"github.com/Geordie1071-spec/minectl/internal/jobs"
 	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/web"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -116,6 +117,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		SetupToken:  setupToken,
 		OnSetupDone: func() { _ = os.Remove(setupTokenPath()) },
 		TrustProxy:  serveTrustProxy,
+		UI:          web.Handler(),
 	})
 
 	servers, url, err := buildServers(handler, sigCtx)

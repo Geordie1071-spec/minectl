@@ -1,5 +1,11 @@
 project_name: minectl
 
+before:
+  hooks:
+    # Embed the web panel into every binary.
+    - npm --prefix web ci
+    - npm --prefix web run build
+
 builds:
   - id: minectl
     main: ./cmd/minectl

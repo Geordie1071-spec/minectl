@@ -84,6 +84,41 @@ jobs:
             echo "::endgroup::"
           done
 
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build UI and embed it in the binary
+        run: |
+          npm run build
+          go build -o ../bin/minectl ../cmd/minectl
+      - name: Playwright smoke test
+        run: |
+          npx playwright install --with-deps chromium-headless-shell
+          npm run smoke
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: web/test-results
+
   staticcheck:
     runs-on: ubuntu-latest
     steps:
