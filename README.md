@@ -63,6 +63,46 @@ minectl list
 To skip Docker install (you already have it): `MINECTL_SKIP_DOCKER=1 curl -sSL ... | bash`  
 To pin version: `MINECTL_VERSION=v0.1.0 curl -sSL ... | bash`
 
+## Web panel
+
+`minectl serve` runs a web panel and API from the same binary. Use it to manage servers from a browser and give friends limited access.
+
+On a VPS with a domain pointed at it (ports 80 and 443 open), this installs minectl and the panel as a systemd service with automatic HTTPS:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash -s -- --domain panel.example.com
+```
+
+It prints a one-time **setup token**. Open `https://panel.example.com/setup`, enter the token, and create your admin account. Until someone does, nobody else can claim the panel.
+
+Without a domain the panel only listens on `127.0.0.1:8080`. Reach it through an SSH tunnel: `ssh -L 8080:localhost:8080 you@your-vps`, then open http://localhost:8080.
+
+| | |
+|---|---|
+| `minectl serve` | Run the panel in the foreground (`--listen`, `--domain`, `--email`, `--trust-proxy`) |
+| `sudo minectl serve install-service` | Run it at boot with systemd (same flags, plus `--user`) |
+| `minectl serve reset-password <user>` | Set a new random password if someone is locked out |
+
+**Roles.** Admins can do everything. Other users only see the servers they've been given access to:
+- **Operator:** start, stop, restart, console, backups, and managing players.
+- **Viewer:** status, logs, stats, and the player list.
+
+**Behind a reverse proxy** (nginx, Caddy): run `minectl serve --listen 127.0.0.1:8080 --trust-proxy`. Pass the original `Host` header through, and set `X-Forwarded-Proto: https`.
+
+The CLI and the panel share the same state (`~/.minectl/minectl.db`), so servers created in one appear in the other. If one is already changing a server, the other is told it's busy.
+
+### API
+
+Everything the panel does goes through a JSON API under `/api/v1`. Create a personal token with `POST /api/v1/tokens` and send it as `Authorization: Bearer mct_...`. A token has the same permissions as its owner.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/v1/servers
+curl -H "Authorization: Bearer $TOKEN" -X POST https://panel.example.com/api/v1/servers \
+  -d '{"name":"survival","type":"paper","memory":"auto","players":10}'
+```
+
+Long operations (create, start, stop, restart, backup, restore, upgrade, resize, modpack and mod changes) return `202` with a job. Follow it with `GET /api/v1/jobs/{id}/events`, a server-sent event stream. Live logs and stats are streamed the same way at `/api/v1/servers/{name}/logs` and `/stats`. Every change is recorded in the audit log (`GET /api/v1/audit`, admins only).
+
 ## Commands
 
 | Command | Description |
@@ -78,6 +118,9 @@ To pin version: `MINECTL_VERSION=v0.1.0 curl -sSL ... | bash`
 | `mods add/list` | Modrinth mods (Fabric/Forge) |
 | `modpack set/info/search` | Modpack (Modrinth) |
 | `upgrade` | Upgrade MC version |
+| `resize` / `recommend` | Change or preview memory and CPU |
+| `versions` | List available Minecraft versions for a server type |
+| `serve` | Run the web panel and API |
 
 ## Config and data
 
