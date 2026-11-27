@@ -5,6 +5,7 @@ import { api, errorMessage, srv, type Job, type UserWithGrants } from "../../api
 import { formatMB } from "../../format";
 import { Alert, Button, Card, Field, Input, Select } from "../../ui";
 import type { TabProps } from "./ServerPage";
+import { GameSettings } from "./GameSettings";
 
 export function Settings({ s, runJob }: TabProps) {
   const navigate = useNavigate();
@@ -50,7 +51,8 @@ export function Settings({ s, runJob }: TabProps) {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="stagger grid gap-4 lg:grid-cols-2">
+      <GameSettings s={s} runJob={runJob} />
       <Card title="Resources">
         <form onSubmit={resize} className="space-y-3">
           <p className="text-sm text-muted">

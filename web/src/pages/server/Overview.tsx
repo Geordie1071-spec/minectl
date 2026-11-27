@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Archive, Box, Cpu, MemoryStick, Puzzle, Users } from "lucide-react";
+import { AlertTriangle, Archive, Box, Cpu, MemoryStick, Puzzle, Users } from "lucide-react";
 import { api, srv, type Backup, type Job } from "../../api";
 import { usePlayers, useStats } from "../../hooks";
 import { scopeHint, useJoinAddress } from "../../join";
@@ -76,8 +76,21 @@ export function Overview({ s }: TabProps) {
   const base = srv(s.name);
   const modded = !!s.modpack || s.mods.length > 0 || isModded(s.type);
 
+  const recentCrash = s.last_crash_at && Date.now() - new Date(s.last_crash_at).getTime() < 24 * 3600 * 1000;
+
   return (
     <div className="stagger space-y-6">
+      {recentCrash && (
+        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" strokeWidth={2} />
+          <div>
+            <p className="font-medium text-danger">Crashed {timeAgo(s.last_crash_at)}</p>
+            <p className="mt-0.5 text-muted">
+              It crashed because {s.last_crash_reason}. Docker restarts crashed servers; check the Console for details.
+            </p>
+          </div>
+        </div>
+      )}
       <section className="dots rounded-xl border border-line p-6 sm:p-10">
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
           <ServiceCard

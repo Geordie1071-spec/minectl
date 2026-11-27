@@ -69,12 +69,15 @@ To pin version: `MINECTL_VERSION=v2.0.0 curl -sSL ... | bash`
 - Create servers from a server type, a Modrinth search, or a CurseForge link, with live install progress.
 - Use a live console, live CPU and memory graphs, and the player list (whitelist, op, kick, ban).
 - Make and restore backups, manage mods and modpacks, resize, and upgrade.
+- Schedule automatic backups, change game settings (MOTD, difficulty, max players...), and get a Discord message when a server crashes.
 
 On a VPS with a domain pointed at it (ports 80 and 443 open), this installs minectl and the panel as a systemd service with automatic HTTPS:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash -s -- --domain panel.example.com
 ```
+
+**Firewall:** open TCP **80** and **443** for the panel and **25565** for players (for example `sudo ufw allow 80,443,25565/tcp`).
 
 It prints a one-time **setup token**. Open `https://panel.example.com/setup`, enter the token, and create your admin account. Until someone does, nobody else can claim the panel.
 
@@ -95,6 +98,24 @@ Without a domain the panel only listens on `127.0.0.1:8080`. Reach it through an
 **Behind a reverse proxy** (nginx, Caddy): run `minectl serve --listen 127.0.0.1:8080 --trust-proxy`. Pass the original `Host` header through, and set `X-Forwarded-Proto: https`.
 
 The CLI and the panel share the same state (`~/.minectl/minectl.db`), so servers created in one appear in the other. If one is already changing a server, the other is told it's busy.
+
+### Running servers unattended
+
+The panel also looks after servers while you're away. These run inside `minectl serve`, so use `install-service` to keep it running at boot.
+
+**Scheduled backups.** Back up every hour, every 6 hours, or every day from a server's Backups tab, or with `minectl backup schedule survival daily` (`off` turns it off). The panel keeps the newest backups and deletes older ones. Change how many it keeps (1-100) under Panel settings.
+
+**Crash alerts.** The panel watches Docker for servers that exit on their own and tells those apart from stops you asked for. It records the reason on the server's Overview, for example running out of memory or exiting with an error. Docker restarts a crashed server automatically. A server that crashes 4 times within 10 minutes is stopped instead, so it doesn't keep restarting. To get a message in Discord, paste a channel webhook URL into Panel settings and press **Send a test**. The webhook is stored on the server and never shown again.
+
+**Game settings.** Change the MOTD, max players, difficulty, gamemode, view distance, PvP, hardcore, online mode, whitelist and flight from a server's Settings tab, or from the CLI:
+
+```bash
+minectl props survival                                   # show current values
+minectl props set survival motd="Welcome!" difficulty=hard max-players=30
+minectl props unset survival pvp                         # back to Minecraft's default
+```
+
+Saving restarts the server to apply the change. Unsetting a setting writes Minecraft's default back to `server.properties`. Settings minectl doesn't manage are left as they are.
 
 ### API
 
@@ -130,6 +151,8 @@ make smoke                    # Playwright smoke test against the built binary
 | `logs` | Tail logs (`--follow` to stream) |
 | `stats` | CPU/memory usage |
 | `backup create/list/restore` | Backups |
+| `backup schedule` | Back up automatically: `hourly`, `6h`, `daily` or `off` (runs while the panel is running) |
+| `props` / `props set` / `props unset` | Show or change game settings |
 | `mods add/list` | Modrinth mods (Fabric/Forge) |
 | `modpack set/info/search` | Modpack (Modrinth) |
 | `upgrade` | Upgrade MC version |

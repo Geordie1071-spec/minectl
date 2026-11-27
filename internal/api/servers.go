@@ -38,6 +38,11 @@ type serverView struct {
 	Job           *domain.Job  `json:"job,omitempty"`
 	DataDir       string       `json:"data_dir,omitempty"`
 	Backups       *int         `json:"backups,omitempty"`
+
+	BackupSchedule  string     `json:"backup_schedule,omitempty"`
+	NextBackupAt    *time.Time `json:"next_backup_at,omitempty"`
+	LastCrashAt     *time.Time `json:"last_crash_at,omitempty"`
+	LastCrashReason string     `json:"last_crash_reason,omitempty"`
 }
 
 func (a *API) view(s *domain.Server, role string, detail bool) serverView {
@@ -45,6 +50,8 @@ func (a *API) view(s *domain.Server, role string, detail bool) serverView {
 		Name: s.Name, Type: s.MCType, Version: s.MCVersion, Status: s.Status, Port: s.Port,
 		MemoryMB: s.MemoryMB, CPUCores: s.CPUCores, Mods: s.Mods, CreatedAt: s.CreatedAt,
 		LastStartedAt: s.LastStartedAt, Role: role,
+		BackupSchedule: s.BackupSchedule, NextBackupAt: s.AutoBackupNextAt,
+		LastCrashAt: s.LastCrashAt, LastCrashReason: s.LastCrashReason,
 	}
 	if v.Mods == nil {
 		v.Mods = []domain.Mod{}
