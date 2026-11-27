@@ -6,8 +6,14 @@ The big one: minectl now has a web panel. Every part of the CLI was also
 reworked so servers start reliably and say why when they don't.
 
 ### Web panel (`minectl serve`)
-- A JSON API under `/api/v1` with live job progress, logs and stats over
-  server-sent events. The React interface is coming in this release.
+- A web interface built into the binary:
+  - A dashboard of every server, with status, players and the join address.
+  - A new-server wizard: pick a server type, search Modrinth, or paste a CurseForge link. A players slider updates the memory and CPU recommendation live.
+  - Live install and start progress.
+  - Server pages with live usage graphs, a console with command history, player management, backups, mods and modpacks, resize, upgrade, and delete.
+  - Pages for users and roles, account settings and API tokens, and an activity log.
+  - Light and dark themes, and it works on phones.
+- A JSON API under `/api/v1`. Job progress, logs and stats stream live over server-sent events.
 - First-run setup token, so nobody can claim a freshly exposed panel before you do.
 - Admins, plus per-server operators and viewers, for sharing servers with friends.
 - Personal API tokens for scripts and bots.

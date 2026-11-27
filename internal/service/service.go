@@ -32,6 +32,8 @@ type Manager struct {
 	St     *store.Store
 	Holder string
 	Wait   bool
+	// CLIHints adds command-line flag suggestions to messages.
+	CLIHints bool
 }
 
 var validName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)

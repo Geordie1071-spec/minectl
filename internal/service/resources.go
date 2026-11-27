@@ -114,7 +114,7 @@ func (m *Manager) RunningMemoryMB() int {
 	return total
 }
 
-func (p Plan) report(ev Events) {
+func (p Plan) report(ev Events, cliHints bool) {
 	mem := server.FormatMB(p.MemoryMB) + " RAM"
 	if p.AutoMemory {
 		mem += " (recommended: " + p.Rec.Reason + ")"
@@ -127,7 +127,7 @@ func (p Plan) report(ev Events) {
 		cpu += " (recommended)"
 	}
 	msg := fmt.Sprintf("Resources: %s, %s", mem, cpu)
-	if p.AutoMemory || p.AutoCPU {
+	if (p.AutoMemory || p.AutoCPU) && cliHints {
 		msg += "\n  Change with --memory / --cpu, or tune the estimate with --players / --mods."
 	}
 	ev.Info(msg)

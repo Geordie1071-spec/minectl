@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -435,5 +436,20 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	if w := h.do("GET", "/api/v1/nope", ""); w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), "error") {
 		t.Errorf("unknown endpoint: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestAddress(t *testing.T) {
+	h := newHarness(t)
+	h.a.cfg.PublicAddress = "play.example.com"
+	sess := h.setupAdmin()
+	w := h.do("GET", "/api/v1/address", "", withCookie(sess))
+	var got map[string]string
+	_ = json.Unmarshal(w.Body.Bytes(), &got)
+	if w.Code != http.StatusOK || got["public"] != "play.example.com" {
+		t.Fatalf("address: %d %s", w.Code, w.Body)
+	}
+	if ip := got["lan"]; ip != "" && net.ParseIP(ip) == nil {
+		t.Fatalf("lan address %q isn't an IP", ip)
 	}
 }

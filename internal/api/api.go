@@ -39,6 +39,9 @@ type Config struct {
 	// TrustProxy uses X-Forwarded-For for the client address, for panels
 	// behind a reverse proxy.
 	TrustProxy bool
+	// PublicAddress is what players type to join (a domain or IP). Empty
+	// lets the UI work it out from the page address or the LAN address.
+	PublicAddress string
 	// UI serves everything outside /api/. Nil serves a placeholder page.
 	UI http.Handler
 }
@@ -161,6 +164,7 @@ func (a *API) routes() []route {
 		{"GET /api/v1/modpacks/search", user, a.searchModpacks},
 		{"GET /api/v1/recommend", user, a.recommend},
 		{"GET /api/v1/host", admin, a.host},
+		{"GET /api/v1/address", user, a.address},
 		{"GET /api/v1/audit", admin, a.listAudit},
 	}
 }

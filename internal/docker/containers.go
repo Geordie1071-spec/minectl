@@ -146,6 +146,28 @@ func (c *Client) ListContainers(ctx context.Context) ([]string, error) {
 	return ids, nil
 }
 
+// PublishedPorts maps each host port published by a running container to
+// that container's name.
+func (c *Client) PublishedPorts(ctx context.Context) (map[int]string, error) {
+	containers, err := c.cli.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	ports := map[int]string{}
+	for _, cn := range containers {
+		name := cn.ID[:12]
+		if len(cn.Names) > 0 {
+			name = strings.TrimPrefix(cn.Names[0], "/")
+		}
+		for _, p := range cn.Ports {
+			if p.PublicPort != 0 {
+				ports[int(p.PublicPort)] = name
+			}
+		}
+	}
+	return ports, nil
+}
+
 func (c *Client) ContainerState(ctx context.Context, containerID string) (running bool, exists bool, err error) {
 	inspect, err := c.cli.ContainerInspect(ctx, containerID)
 	if err != nil {

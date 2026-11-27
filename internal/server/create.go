@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Geordie1071-spec/minectl/internal/config"
@@ -137,8 +138,11 @@ func Create(ctx context.Context, d *docker.Client, st *store.Store, opts CreateO
 		report(96, "starting container")
 		startedAt := time.Now().UTC()
 		if err := d.StartContainer(ctx, containerID); err != nil {
-			s.Status = domain.StatusStopped
-			_ = st.SaveServer(s)
+			_ = d.RemoveContainer(context.Background(), containerID)
+			_ = st.DeleteServer(s.Name)
+			if strings.Contains(err.Error(), "port is already allocated") || strings.Contains(err.Error(), "address already in use") {
+				return nil, fmt.Errorf("port %d is already in use on this machine; pick another port", s.Port)
+			}
 			return nil, fmt.Errorf("start container: %w", err)
 		}
 		s.Status = domain.StatusRunning

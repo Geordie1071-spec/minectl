@@ -80,6 +80,6 @@ func newManager(ctx context.Context) (*service.Manager, func(), error) {
 		return nil, nil, err
 	}
 	st := getStore()
-	m := &service.Manager{D: d, St: st, Holder: fmt.Sprintf("cli (pid %d)", os.Getpid()), Wait: !noWait}
+	m := &service.Manager{D: d, St: st, Holder: fmt.Sprintf("cli (pid %d)", os.Getpid()), Wait: !noWait, CLIHints: true}
 	return m, func() { _ = d.Close(); _ = st.Close() }, nil
 }

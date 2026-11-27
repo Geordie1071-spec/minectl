@@ -56,12 +56,16 @@ func WaitReady(ctx context.Context, d *docker.Client, s *domain.Server, since ti
 	return recent, ErrStopped
 }
 
+// Terminal colour codes, with or without the escape byte (some log paths
+// drop it and leave "[1;31m").
+var ansiCodes = regexp.MustCompile(`\x1b?\[[0-9;]*m`)
+
 func FailureSummary(recent []string) []string {
 	var out []string
 	seen := map[string]bool{}
 	manual := NeedsManualDownloads(recent)
 	for _, l := range recent {
-		t := strings.TrimSpace(l)
+		t := strings.TrimSpace(ansiCodes.ReplaceAllString(l, ""))
 		if seen[t] || strings.Contains(t, "DO NOT report this line") {
 			continue
 		}
@@ -79,7 +83,9 @@ func FailureSummary(recent []string) []string {
 		out = out[len(out)-10:]
 	}
 	if len(out) == 0 && len(recent) > 0 {
-		out = recent[max(0, len(recent)-15):]
+		for _, l := range recent[max(0, len(recent)-15):] {
+			out = append(out, strings.TrimSpace(ansiCodes.ReplaceAllString(l, "")))
+		}
 	}
 	return out
 }
@@ -114,6 +120,9 @@ func DescribeStartFailure(recent []string) string {
 		return "the server ran out of memory; try a larger --memory"
 	case strings.Contains(joined, "address already in use"):
 		return "the port is already in use; pick another with --port"
+	case strings.Contains(joined, "unknownhostexception") || strings.Contains(joined, "failed to resolve") ||
+		strings.Contains(joined, "check network connectivity") || strings.Contains(joined, "temporary failure in name resolution"):
+		return "the server couldn't reach the internet to download its files (a DNS lookup failed); check this machine's network connection, then try again"
 	case strings.Contains(joined, "is not available") || strings.Contains(joined, "failed to download"):
 		return "that Minecraft version isn't available for this server type; omit --version to use the newest supported one"
 	case strings.Contains(joined, "unsupportedclassversionerror"):

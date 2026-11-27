@@ -1,8 +1,13 @@
 package service
 
 import (
+	"context"
+	"net"
 	"strings"
 	"testing"
+
+	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/store"
 )
 
 func TestValidateName(t *testing.T) {
@@ -31,5 +36,55 @@ func TestStartFailedErrorMessage(t *testing.T) {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message missing %q:\n%s", want, msg)
 		}
+	}
+}
+
+func TestChoosePort(t *testing.T) {
+	t.Setenv("MINECTL_CONFIG_DIR", t.TempDir())
+	st := store.New()
+	defer st.Close()
+	m := &Manager{St: st}
+	ctx := context.Background()
+
+	// Hold a port the way another program would, and start the search
+	// just below it so the test doesn't depend on 25565 being free.
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	held := l.Addr().(*net.TCPAddr).Port
+
+	if _, _, err := m.choosePort(ctx, held); err == nil || !strings.Contains(err.Error(), "another program") {
+		t.Fatalf("requested port held by another program: %v", err)
+	}
+	if err := st.SaveServer(&domain.Server{Name: "taken", Port: held + 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := m.choosePort(ctx, held+1); err == nil || !strings.Contains(err.Error(), "minectl server taken") {
+		t.Fatalf("requested port used by a server: %v", err)
+	}
+
+	// Creates running at the same time get different ports until released.
+	var got []int
+	var releases []func()
+	for i := 0; i < 3; i++ {
+		p, release, err := m.choosePort(ctx, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, p)
+		releases = append(releases, release)
+	}
+	if got[0] == got[1] || got[1] == got[2] || got[0] == got[2] {
+		t.Fatalf("concurrent creates got overlapping ports %v", got)
+	}
+	for _, r := range releases {
+		r()
+	}
+	if p, release, _ := m.choosePort(ctx, 0); p != got[0] {
+		t.Fatalf("after release, want %d again, got %d", got[0], p)
+	} else {
+		release()
 	}
 }

@@ -3,10 +3,20 @@ BINARY := minectl
 MAIN   := ./cmd/minectl
 GO     := go
 
-.PHONY: build run test e2e lint tidy install release-dry
+.PHONY: build web panel run test e2e smoke lint tidy install release-dry
 
 build:
 	$(GO) build -o bin/$(BINARY) $(MAIN)
+
+# Build the web panel; `make panel` then embeds it in the binary.
+web:
+	npm --prefix web ci
+	npm --prefix web run build
+
+panel: web build
+
+smoke: panel
+	npm --prefix web run smoke
 
 run:
 	$(GO) run $(MAIN)

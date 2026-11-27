@@ -65,7 +65,10 @@ To pin version: `MINECTL_VERSION=v2.0.0 curl -sSL ... | bash`
 
 ## Web panel
 
-`minectl serve` runs a web panel and API from the same binary. Use it to manage servers from a browser and give friends limited access.
+`minectl serve` runs a web panel and API from the same binary. Use it to manage servers from a browser and give friends limited access. From the panel you can:
+- Create servers from a server type, a Modrinth search, or a CurseForge link, with live install progress.
+- Use a live console, live CPU and memory graphs, and the player list (whitelist, op, kick, ban).
+- Make and restore backups, manage mods and modpacks, resize, and upgrade.
 
 On a VPS with a domain pointed at it (ports 80 and 443 open), this installs minectl and the panel as a systemd service with automatic HTTPS:
 
@@ -79,9 +82,11 @@ Without a domain the panel only listens on `127.0.0.1:8080`. Reach it through an
 
 | | |
 |---|---|
-| `minectl serve` | Run the panel in the foreground (`--listen`, `--domain`, `--email`, `--trust-proxy`) |
+| `minectl serve` | Run the panel in the foreground (`--listen`, `--domain`, `--email`, `--trust-proxy`, `--public-address`) |
 | `sudo minectl serve install-service` | Run it at boot with systemd (same flags, plus `--user`) |
 | `minectl serve reset-password <user>` | Set a new random password if someone is locked out |
+
+**Join address.** The panel shows players the address to type into Minecraft. It uses the panel's own hostname, or this machine's network IP when you open the panel at `localhost`. To set it yourself, for example to a domain pointed at the machine, pass `--public-address play.example.com`.
 
 **Roles.** Admins can do everything. Other users only see the servers they've been given access to:
 - **Operator:** start, stop, restart, console, backups, and managing players.
@@ -102,6 +107,16 @@ curl -H "Authorization: Bearer $TOKEN" -X POST https://panel.example.com/api/v1/
 ```
 
 Long operations (create, start, stop, restart, backup, restore, upgrade, resize, modpack and mod changes) return `202` with a job. Follow it with `GET /api/v1/jobs/{id}/events`, a server-sent event stream. Live logs and stats are streamed the same way at `/api/v1/servers/{name}/logs` and `/stats`. Every change is recorded in the audit log (`GET /api/v1/audit`, admins only).
+
+### Developing the panel
+
+The React app lives in `web/`. Release binaries have it embedded; for a local build with the UI, run `make panel`. Without it, `go build` still works and serves a placeholder page.
+
+```bash
+minectl serve                 # API on 127.0.0.1:8080
+npm --prefix web run dev      # UI with hot reload on http://localhost:5173, proxied to the API
+make smoke                    # Playwright smoke test against the built binary
+```
 
 ## Commands
 
