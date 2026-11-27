@@ -1,14 +1,14 @@
 import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Archive, Box, Cpu, MemoryStick, Puzzle, Users } from "lucide-react";
-import { api, srv, type Backup, type Job } from "../../api";
+import { AlertTriangle, Archive, Box, Cpu, Globe, MemoryStick, Puzzle, Users } from "lucide-react";
+import { api, srv, type Backup, type Job, type PanelSettings, type Server } from "../../api";
 import { usePlayers, useStats } from "../../hooks";
 import { scopeHint, useJoinAddress } from "../../join";
 import { dateTime, formatBytes, formatMB, isModded, timeAgo, typeLabels } from "../../format";
 import { jobLabel } from "../../JobView";
-import { Card, CopyButton, LiveDot, Meter, Sparkline, Spinner, StatusDot, cx } from "../../ui";
-import type { TabProps } from "./ServerPage";
+import { Alert, Button, Card, CopyButton, LiveDot, Meter, Sparkline, Spinner, StatusDot, cx } from "../../ui";
+import { can, type TabProps } from "./ServerPage";
 
 // ServiceCard is one node on the canvas, like a service in Railway.
 function ServiceCard({
@@ -62,13 +62,101 @@ function Stat({ icon: I, label, value }: { icon: typeof Box; label: string; valu
   );
 }
 
-export function Overview({ s }: TabProps) {
+// containerMB mirrors docker.ContainerMemoryMB: the heap plus room for Java's
+// own memory, at least 512 MB.
+const containerMB = (heap: number) => heap + Math.max(512, Math.floor(heap / 4));
+
+const methodText: Record<NonNullable<Server["public"]>["method"], string> = {
+  upnp: "Your router forwards the port (UPnP).",
+  "nat-pmp": "Your router forwards the port (NAT-PMP).",
+  playit: "Through a playit.gg tunnel.",
+};
+
+// useHomeAddress is the local address to join from home when the server is
+// public through the router, whose public address often doesn't loop back.
+function useHomeAddress(s: Server) {
+  const { data } = useQuery({
+    queryKey: ["address"],
+    queryFn: () => api.get<{ public: string; lan: string }>("/address"),
+    staleTime: Infinity,
+  });
+  if (!s.public || s.public.method === "playit" || !data?.lan) return "";
+  return s.port === 25565 ? data.lan : `${data.lan}:${s.port}`;
+}
+
+// InternetAccess lets admins open a server to friends outside the network:
+// router port forwarding first, a playit.gg tunnel when that can't work.
+function InternetAccess({ s, runJob }: TabProps) {
+  const admin = can(s, "admin");
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.get<PanelSettings>("/settings"),
+    enabled: admin && !s.public,
+  });
+  const busy = !!s.job;
+  const home = useHomeAddress(s);
+  if (s.public) {
+    return (
+      <Card title="Internet access" description={methodText[s.public.method]}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-sm">
+            <Globe className="h-4 w-4 text-ok" strokeWidth={1.75} />
+            Friends join at <span className="font-mono">{s.public.address.replace(/:25565$/, "")}</span>
+            <CopyButton text={s.public.address} label="Copy address" />
+          </span>
+          {admin && (
+            <Button disabled={busy} onClick={() => runJob("/public", "del").catch(() => {})}>
+              Make private
+            </Button>
+          )}
+        </div>
+        {home && (
+          <div className="mt-4">
+            <Alert kind="warn">
+              This address may not work from your own network: most home routers can't connect to their own public address. At home, join with{" "}
+              <span className="font-mono">{home}</span>
+              <CopyButton text={home} label="Copy local address" />. Friends elsewhere use the address above.
+            </Alert>
+          </div>
+        )}
+      </Card>
+    );
+  }
+  return (
+    <Card title="Internet access" description="Only players on your network can join.">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-xl text-sm text-muted">
+          Making it public asks your router to forward port {s.port}. If the router won't, or your internet provider shares your address (CGNAT), a
+          free playit.gg tunnel is used instead.
+          {admin && settings.data && !settings.data.playit_linked && (
+            <>
+              {" "}
+              <Link to="/account" className="text-fg underline underline-offset-2">
+                Link playit.gg
+              </Link>{" "}
+              to have the tunnel ready.
+            </>
+          )}
+        </p>
+        {admin && (
+          <Button variant="primary" disabled={busy} onClick={() => runJob("/public", "post", { via: "auto" }).catch(() => {})}>
+            <Globe className="h-4 w-4" strokeWidth={1.75} /> Make public
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+export function Overview({ s, runJob }: TabProps) {
   const running = s.status === "running" && !s.job;
   const { stats, history } = useStats(s.name, running);
   const players = usePlayers(s.name, running);
   const jobs = useQuery({ queryKey: ["jobs", s.name], queryFn: () => api.get<Job[]>(srv(s.name) + "/jobs"), refetchInterval: 15_000 });
   const backups = useQuery({ queryKey: ["backups", s.name], queryFn: () => api.get<Backup[]>(srv(s.name) + "/backups") });
-  const { address, scope } = useJoinAddress(s.port);
+  const { address, scope } = useJoinAddress(s.port, s.public);
+  const home = useHomeAddress(s);
+  const hint = home ? `For friends elsewhere. From your own network, join with ${home}.` : scopeHint[scope];
   const cores = s.cpu_cores || 1;
   const cpuNow = stats ? stats.cpu_percent / cores : 0;
   const latest = backups.data?.[backups.data.length - 1];
@@ -98,7 +186,7 @@ export function Overview({ s }: TabProps) {
             title={s.name}
             highlight
             subtitle={
-              <span className="flex items-center gap-1 font-mono" title={scopeHint[scope] || undefined}>
+              <span className="flex items-center gap-1 font-mono" title={hint || undefined}>
                 {address}
                 <CopyButton text={address} label="Copy address" />
               </span>
@@ -134,8 +222,10 @@ export function Overview({ s }: TabProps) {
             <span className="text-muted">{running && players.data ? `${players.data.online} of ${players.data.max} online` : "—"}</span>
           </ServiceCard>
         </div>
-        {scopeHint[scope] && <p className="mx-auto mt-6 max-w-3xl text-center text-xs text-subtle">{scopeHint[scope]}</p>}
+        {hint && <p className="mx-auto mt-6 max-w-3xl text-center text-xs text-subtle">{hint}</p>}
       </section>
+
+      <InternetAccess s={s} runJob={runJob} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Metrics" description={running ? "Live, refreshed every second." : "Start the server to see live usage."}>
@@ -154,7 +244,8 @@ export function Overview({ s }: TabProps) {
               </>
             )}
             <div className="space-y-2.5 border-t border-line pt-4 text-[13px]">
-              <Stat icon={MemoryStick} label="Memory limit" value={formatMB(s.memory_mb)} />
+              <Stat icon={MemoryStick} label="Minecraft (Java heap)" value={formatMB(s.memory_mb)} />
+              <Stat icon={MemoryStick} label="Container limit, with Java's overhead" value={formatMB(containerMB(s.memory_mb))} />
               <Stat icon={Cpu} label="CPU limit" value={s.cpu_cores ? `${s.cpu_cores} cores` : "none"} />
             </div>
           </div>

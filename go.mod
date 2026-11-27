@@ -7,6 +7,9 @@ require (
 	github.com/docker/go-connections v0.6.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/google/uuid v1.6.0
+	github.com/huin/goupnp v1.3.1
+	github.com/jackpal/gateway v1.2.2
+	github.com/jackpal/go-nat-pmp v1.1.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	golang.org/x/crypto v0.59.0
@@ -51,7 +54,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

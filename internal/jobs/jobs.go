@@ -153,6 +153,13 @@ func (r *Runner) live(id string) *job {
 	return r.active[id]
 }
 
+// Running counts the jobs that haven't finished.
+func (r *Runner) Running() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.active)
+}
+
 // Active returns the running job for a server, if any.
 func (r *Runner) Active(server string) *domain.Job {
 	r.mu.Lock()

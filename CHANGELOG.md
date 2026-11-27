@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-11-27)
 
 The big one: minectl now has a web panel. Every part of the CLI was also
 reworked so servers start reliably and say why when they don't.
@@ -29,6 +29,18 @@ reworked so servers start reliably and say why when they don't.
   A server that crashes 4 times in 10 minutes is stopped instead of restarted again and again.
 - Game settings: MOTD, max players, difficulty, gamemode, view distance, PvP, hardcore, online mode, whitelist and flight, from the Settings tab or `minectl props`.
 - Panel settings for the Discord webhook and how many backups to keep.
+
+### Hosting from home
+- `minectl public` and a "Make public" button let friends join a server running on your own computer.
+  minectl asks the router to forward the port (UPnP or NAT-PMP). When it can't, or the connection is behind CGNAT, it falls back to a free playit.gg tunnel.
+- Link playit.gg once with `minectl playit link` or from Panel settings; minectl runs the agent and makes the tunnels.
+- The panel keeps router forwards alive and shows the public address as the join address.
+
+### Updates
+- `minectl update` installs the latest release after checking it against the release checksums, and restarts the panel.
+- The panel tells admins about new releases and can update itself with one click.
+- The install script verifies checksums. It no longer falls back to installing 1.0 when GitHub can't be reached, and it restarts the panel after updating.
+- An older minectl refuses to open a database written by a newer one, instead of hiding your servers.
 
 ### Modpacks and versions
 - Modrinth modpacks with `--modpack`: the loader, Minecraft version and Java version are detected from the pack.

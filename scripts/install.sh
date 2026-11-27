@@ -56,25 +56,52 @@ else
 fi
 
 VERSION="${MINECTL_VERSION:-}"
-if [ -z "$VERSION" ] && command -v curl &>/dev/null; then
-  REPO_PATH="${REPO#https://github.com/}"
-  REPO_PATH="${REPO_PATH#http://github.com/}"
-  REPO_PATH="${REPO_PATH%.git}"
-  [ -n "$REPO_PATH" ] && VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') || true
+REPO_PATH="${REPO#https://github.com/}"
+REPO_PATH="${REPO_PATH#http://github.com/}"
+REPO_PATH="${REPO_PATH%.git}"
+if [ -z "$VERSION" ] && command -v curl &>/dev/null && [ -n "$REPO_PATH" ]; then
+  VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') || true
 fi
-[ -z "$VERSION" ] && VERSION="v1.0"
+if [ -z "$VERSION" ]; then
+  # Never guess a version: an old release can't read a newer database.
+  echo "Couldn't find the latest minectl release (GitHub may be rate-limiting this machine)."
+  echo "Try again in a while, or pick a version: MINECTL_VERSION=v2.0.0 curl ... | bash"
+  exit 1
+fi
+
+# Updating an install where the panel owns the binary: write to the real file
+# the symlink points at, so the panel gets the new version too.
+TARGET="${INSTALL_DIR}/${BINARY}"
+if [ -L "$TARGET" ]; then
+  TARGET=$(readlink -f "$TARGET")
+fi
 
 INSTALLED=
-DOWNLOAD_URL="${REPO}/releases/download/${VERSION}/minectl_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+ARCHIVE="minectl_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+DOWNLOAD_URL="${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 echo "Downloading minectl ${VERSION} ($OS/$ARCH)..."
 if command -v curl &>/dev/null; then
-  if curl -sSLf -o "/tmp/${BINARY}.tar.gz" "$DOWNLOAD_URL"; then
-    tar -xzf "/tmp/${BINARY}.tar.gz" -C /tmp
-    sudo mkdir -p "$INSTALL_DIR"
-    sudo mv "/tmp/${BINARY}" "${INSTALL_DIR}/${BINARY}"
-    sudo chmod +x "${INSTALL_DIR}/${BINARY}"
-    rm -f "/tmp/${BINARY}.tar.gz"
-    echo "Installed minectl to ${INSTALL_DIR}/${BINARY}"
+  TMP=$(mktemp -d)
+  trap 'rm -rf "$TMP"' EXIT
+  if curl -sSLf -o "${TMP}/${ARCHIVE}" "$DOWNLOAD_URL"; then
+    if curl -sSLf -o "${TMP}/checksums.txt" "${REPO}/releases/download/${VERSION}/checksums.txt"; then
+      if ! (cd "$TMP" && grep " ${ARCHIVE}\$" checksums.txt | sha256sum -c --status -); then
+        echo "The download doesn't match the release checksum. Not installing it."
+        exit 1
+      fi
+      echo "Checksum OK."
+    else
+      echo "Warning: this release has no checksums.txt, so the download couldn't be verified."
+    fi
+    tar -xzf "${TMP}/${ARCHIVE}" -C "$TMP" "$BINARY"
+    sudo mkdir -p "$(dirname "$TARGET")"
+    # Keep the owner of an existing binary (the panel may own it).
+    OWNER=""
+    [ -e "$TARGET" ] && OWNER=$(stat -c '%u:%g' "$TARGET")
+    sudo install -m 0755 "${TMP}/${BINARY}" "${TARGET}.new"
+    [ -n "$OWNER" ] && sudo chown "$OWNER" "${TARGET}.new"
+    sudo mv -f "${TARGET}.new" "$TARGET"
+    echo "Installed minectl ${VERSION} to ${TARGET}"
     INSTALLED=1
   fi
 fi
@@ -143,6 +170,11 @@ if [ ! -d /opt/minectl/servers ]; then
   echo "Creating /opt/minectl/servers (you can use --data-dir to use a different path)."
   sudo mkdir -p /opt/minectl/servers /opt/minectl/backups
   sudo chown -R "${DATA_USER}:${DATA_USER}" /opt/minectl 2>/dev/null || true
+fi
+
+if [ -z "$PANEL" ] && [ -n "$INSTALLED" ] && command -v systemctl &>/dev/null && systemctl is-active --quiet minectl 2>/dev/null; then
+  echo "Restarting the panel onto the new version..."
+  sudo systemctl restart minectl
 fi
 
 if [ -n "$PANEL" ]; then

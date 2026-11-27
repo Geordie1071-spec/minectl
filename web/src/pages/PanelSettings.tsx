@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, type PanelSettings as Settings } from "../api";
-import { Alert, Button, Card, Field, Input } from "../ui";
+import { Alert, Button, Card, Field, Input, Spinner } from "../ui";
 
 // PanelSettings holds admin-only settings for the whole panel.
 export function PanelSettings() {
@@ -73,6 +73,8 @@ export function PanelSettings() {
         </form>
       </Card>
 
+      <Playit linked={!!q.data?.playit_linked} />
+
       <Card title="Backups" description="How many backups each server keeps. Older ones are deleted when a new backup is made.">
         <form
           className="flex flex-wrap items-end gap-3"
@@ -98,5 +100,110 @@ export function PanelSettings() {
         </div>
       )}
     </>
+  );
+}
+
+// Playit links a playit.gg account: the user approves a claim code on
+// playit.gg while the panel polls until the agent key arrives.
+function Playit({ linked }: { linked: boolean }) {
+  const qc = useQueryClient();
+  const [claim, setClaim] = useState<{ code: string; url: string }>();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!claim) return;
+    let stopped = false;
+    const poll = async () => {
+      while (!stopped) {
+        try {
+          const { status } = await api.post<{ status: string }>("/settings/playit/claim/" + claim.code);
+          if (status === "linked") {
+            setClaim(undefined);
+            qc.invalidateQueries({ queryKey: ["settings"] });
+            return;
+          }
+          if (status === "rejected") {
+            setClaim(undefined);
+            setError("The link was rejected on playit.gg.");
+            return;
+          }
+        } catch (err) {
+          setError(errorMessage(err));
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    };
+    poll();
+    return () => {
+      stopped = true;
+    };
+  }, [claim, qc]);
+
+  const start = async () => {
+    setError("");
+    try {
+      const c = await api.post<{ code: string; url: string }>("/settings/playit/claim");
+      setClaim(c);
+      window.open(c.url, "_blank", "noopener");
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const unlink = async () => {
+    if (!confirm("Close every playit.gg tunnel and unlink the account? Servers that use a tunnel become private.")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.del("/settings/playit");
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      qc.invalidateQueries({ queryKey: ["servers"] });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card
+      title="Tunnels"
+      description="When a router can't forward ports, servers are made public through a free playit.gg tunnel. Link an account once to use it."
+    >
+      <div className="space-y-3">
+        <p className="text-sm">
+          playit.gg: {linked ? <span className="font-medium text-ok">linked</span> : <span className="text-muted">not linked</span>}
+        </p>
+        {claim && (
+          <Alert kind="info">
+            Approve minectl on playit.gg (sign up for free if you need to). If the page didn't open:{" "}
+            <a href={claim.url} target="_blank" rel="noopener noreferrer" className="font-mono underline underline-offset-2">
+              {claim.url}
+            </a>
+            <span className="mt-1 flex items-center gap-2 text-muted">
+              <Spinner className="h-3 w-3" /> Waiting for approval…
+            </span>
+          </Alert>
+        )}
+        {error && <Alert>{error}</Alert>}
+        <div className="flex flex-wrap gap-2">
+          {linked ? (
+            <Button type="button" variant="ghost" busy={busy} onClick={unlink}>
+              Unlink
+            </Button>
+          ) : (
+            <Button type="button" variant="primary" disabled={!!claim} onClick={start}>
+              Link playit.gg
+            </Button>
+          )}
+          {claim && (
+            <Button type="button" variant="ghost" onClick={() => setClaim(undefined)}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }

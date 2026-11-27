@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, NavLink, Navigate, Outlet, matchPath, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowUpRight, BookOpen, Bug, LayoutGrid, LogOut, Menu, MoreVertical, Plus, Settings, KeyRound, Users, X } from "lucide-react";
+import { Activity, ArrowUpRight, BookOpen, Bug, LayoutGrid, LogOut, Menu, Plus, Settings, Users, X } from "lucide-react";
 import { api, ApiError } from "./api";
 import { useMe } from "./hooks";
-import { Button, Spinner, cx } from "./ui";
+import { Button, Modal, Spinner, cx } from "./ui";
 
 export function Logo({ onDark, className = "h-7", wordmarkOnly }: { onDark?: boolean; className?: string; wordmarkOnly?: boolean }) {
   if (wordmarkOnly) {
@@ -154,7 +154,7 @@ function ExternalItem({ href, icon: I, children }: { href: string; icon: Icon; c
   );
 }
 
-function Avatar({ name, className = "h-7 w-7 text-xs" }: { name: string; className?: string }) {
+export function Avatar({ name, className = "h-7 w-7 text-xs" }: { name: string; className?: string }) {
   return (
     <span
       className={cx(
@@ -168,54 +168,46 @@ function Avatar({ name, className = "h-7 w-7 text-xs" }: { name: string; classNa
   );
 }
 
+// UserRow shows who is logged in. Settings live in the main nav, so the only
+// action here is logging out, which asks first.
 function UserRow({ username, isAdmin, onLogout }: { username: string; isAdmin: boolean; onLogout: () => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-  useEffect(() => setOpen(false), [location.pathname]);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
-
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   return (
-    <div className="relative" ref={ref}>
-      {open && (
-        <div role="menu" className="absolute right-2 bottom-full left-2 z-30 mb-2 origin-bottom animate-scale-in rounded-lg border border-line bg-surface-2 p-1 shadow-pop">
-          <Link role="menuitem" to="/account" className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted hover:bg-hover hover:text-fg">
-            <Settings className="h-4 w-4" strokeWidth={1.75} /> Account settings
-          </Link>
-          <Link role="menuitem" to="/account#tokens" className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted hover:bg-hover hover:text-fg">
-            <KeyRound className="h-4 w-4" strokeWidth={1.75} /> API tokens
-          </Link>
-          <div className="my-1 h-px bg-line" />
-          <button role="menuitem" onClick={onLogout} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-muted hover:bg-hover hover:text-fg">
-            <LogOut className="h-4 w-4" strokeWidth={1.75} /> Log out
-          </button>
-        </div>
-      )}
+    <div className="flex items-center gap-3 px-4 py-3">
+      <Avatar name={username} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{username}</span>
+        <span className="block text-[11px] font-medium tracking-wide text-accent uppercase">{isAdmin ? "Admin" : "Member"}</span>
+      </span>
       <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={`Account menu for ${username}`}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-hover/60"
+        type="button"
+        onClick={() => setConfirming(true)}
+        aria-label="Log out"
+        title="Log out"
+        className="rounded-md p-1.5 text-subtle transition-colors hover:bg-hover hover:text-fg"
       >
-        <Avatar name={username} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{username}</span>
-          <span className="block text-[11px] font-medium tracking-wide text-accent uppercase">{isAdmin ? "Admin" : "Member"}</span>
-        </span>
-        <MoreVertical className="h-4 w-4 text-subtle" strokeWidth={1.75} />
+        <LogOut className="h-4 w-4" strokeWidth={1.75} />
       </button>
+      <Modal open={confirming} onClose={() => setConfirming(false)} title="Log out?">
+        <p className="text-sm text-muted">You'll need your username and password to log back in to {username}.</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button type="button" onClick={() => setConfirming(false)} autoFocus>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            busy={busy}
+            onClick={() => {
+              setBusy(true);
+              onLogout();
+            }}
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.75} /> Log out
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -318,6 +310,7 @@ export function Layout() {
         <aside className="hidden w-60 shrink-0 lg:block">{sidebar}</aside>
         <div className="min-w-0 flex-1 lg:py-2 lg:pr-2">
           <div className="h-full overflow-y-auto border-t border-line bg-surface lg:rounded-lg lg:border">
+            {user?.is_admin && <UpdateBanner />}
             <main key={location.pathname.split("/").slice(0, 3).join("/")} className="mx-auto max-w-5xl animate-fade-up px-4 py-8 sm:px-8 sm:py-12">
               <Outlet />
             </main>
@@ -336,6 +329,117 @@ export function PageTitle({ children, actions, description }: { children: ReactN
         {description && <p className="mt-1.5 text-sm text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+interface UpdateInfo {
+  current: string;
+  latest?: string;
+  available: boolean;
+  url?: string;
+  can_apply: boolean;
+}
+
+const dismissKey = "minectl.update-dismissed";
+
+// UpdateBanner tells admins about a new release and can install it: the panel
+// replaces its binary and restarts, and the page reloads once it's back.
+function UpdateBanner() {
+  const q = useQuery({ queryKey: ["update"], queryFn: () => api.get<UpdateInfo>("/update"), staleTime: 3600_000 });
+  const [state, setState] = useState<"idle" | "updating" | "restarting">("idle");
+  const [error, setError] = useState("");
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(dismissKey) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const info = q.data;
+  if (!info?.available || !info.latest || (dismissed === info.latest && state === "idle")) return null;
+  const latest = info.latest;
+
+  const apply = async () => {
+    setError("");
+    setState("updating");
+    try {
+      await api.post("/update");
+    } catch (err) {
+      setState("idle");
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    setState("restarting");
+    // Wait for the restarted panel to report the new version.
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const now = await api.get<UpdateInfo>("/update");
+        if (now.current === latest) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        // Still restarting.
+      }
+    }
+    setState("idle");
+    setError("The panel hasn't come back yet. Check it on the machine: systemctl status minectl");
+  };
+
+  const dismiss = () => {
+    try {
+      localStorage.setItem(dismissKey, latest);
+    } catch {
+      // Not remembered; it shows again next time.
+    }
+    setDismissed(latest);
+  };
+
+  return (
+    <div className="border-b border-line bg-surface-2 px-4 py-2.5 text-sm sm:px-8">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2">
+        <ArrowUpRight className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
+        <span className="flex-1">
+          {state === "restarting" ? (
+            <>Updated to {latest}. Restarting the panel…</>
+          ) : (
+            <>
+              minectl <span className="font-medium">{latest}</span> is available (you have {info.current}).
+              {info.url && (
+                <>
+                  {" "}
+                  <a href={info.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                    What's new
+                  </a>
+                </>
+              )}
+              {!info.can_apply && (
+                <span className="text-muted">
+                  {" "}
+                  Run <code className="font-mono">sudo minectl update</code> on the machine.
+                </span>
+              )}
+            </>
+          )}
+          {error && <span className="block text-danger">{error}</span>}
+        </span>
+        {state === "restarting" ? (
+          <Spinner className="h-4 w-4" />
+        ) : (
+          <span className="flex gap-2">
+            {info.can_apply && (
+              <Button variant="primary" busy={state === "updating"} onClick={apply}>
+                Update now
+              </Button>
+            )}
+            <Button variant="ghost" onClick={dismiss} disabled={state !== "idle"}>
+              Later
+            </Button>
+          </span>
+        )}
+      </div>
     </div>
   );
 }

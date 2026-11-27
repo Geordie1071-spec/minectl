@@ -16,6 +16,7 @@ import (
 	"github.com/Geordie1071-spec/minectl/internal/jobs"
 	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/update"
 )
 
 const setupTok = "test-setup-token"
@@ -29,6 +30,10 @@ type harness struct {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	t.Setenv("MINECTL_CONFIG_DIR", t.TempDir())
+	// Keep tests off the real GitHub API; lookups fail at once.
+	oldAPI := update.API
+	update.API = "http://127.0.0.1:1"
+	t.Cleanup(func() { update.API = oldAPI })
 	st := store.New()
 	t.Cleanup(func() { st.Close() })
 	runner, err := jobs.New(context.Background(), st)
@@ -508,5 +513,39 @@ func TestBackupScheduleAndProperties(t *testing.T) {
 	}
 	if w := h.do("GET", "/api/v1/servers/alpha/properties", "", withCookie(sess)); w.Code != http.StatusOK || strings.TrimSpace(w.Body.String()) != "{}" {
 		t.Fatalf("empty properties: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestPublicAndPlayitSettings(t *testing.T) {
+	h := newHarness(t)
+	sess := h.setupAdmin()
+	_ = h.st.SaveServer(&domain.Server{Name: "alpha", Public: &domain.Public{Method: "playit", Address: "abc.joinmc.link:41234", TunnelID: "t-1"}})
+	w := h.do("GET", "/api/v1/servers/alpha", "", withCookie(sess))
+	if !strings.Contains(w.Body.String(), `"public":{"method":"playit","address":"abc.joinmc.link:41234"}`) {
+		t.Fatalf("server view: %s", w.Body)
+	}
+	if strings.Contains(w.Body.String(), "t-1") {
+		t.Fatalf("server view leaks the tunnel id: %s", w.Body)
+	}
+	if w := h.do("POST", "/api/v1/servers/alpha/public", `{"via":"ngrok"}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("bad via: %d", w.Code)
+	}
+
+	cfg, _ := h.st.GetConfig()
+	cfg.PlayitSecret = "the-secret"
+	_ = h.st.SaveConfig(cfg)
+	w = h.do("GET", "/api/v1/settings", "", withCookie(sess))
+	if !strings.Contains(w.Body.String(), `"playit_linked":true`) || strings.Contains(w.Body.String(), "the-secret") {
+		t.Fatalf("settings: %s", w.Body)
+	}
+
+	w = h.do("POST", "/api/v1/settings/playit/claim", "", withCookie(sess))
+	var claim struct{ Code, URL string }
+	_ = json.Unmarshal(w.Body.Bytes(), &claim)
+	if w.Code != http.StatusOK || len(claim.Code) != 10 || claim.URL != "https://playit.gg/claim/"+claim.Code {
+		t.Fatalf("claim: %d %s", w.Code, w.Body)
+	}
+	if w := h.do("POST", "/api/v1/settings/playit/claim/zzz", "", withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Fatalf("bad claim code: %d", w.Code)
 	}
 }

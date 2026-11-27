@@ -52,7 +52,7 @@ export function Spinner({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 export const inputClass =
-  "h-9 rounded-md border border-line bg-surface px-3 text-sm text-fg transition-colors placeholder:text-subtle hover:border-line-strong focus:border-fg/40 focus:ring-3 focus:ring-fg/8 focus:outline-none disabled:opacity-60";
+  "h-9 rounded-md border border-line bg-surface px-3 text-sm text-fg transition-colors placeholder:text-subtle hover:border-line-strong focus:border-fg/40 focus:ring-3 focus:ring-fg/8 disabled:opacity-60";
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cx(inputClass, "w-full", props.className)} />;

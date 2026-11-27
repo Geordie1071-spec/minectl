@@ -4,11 +4,13 @@ export function formatMB(mb: number): string {
   return `${mb} MB`;
 }
 
+// formatBytes uses 1024-based units, like formatMB and the memory settings,
+// so a 2.5 GB container limit doesn't show up as 2.7 GB.
 export function formatBytes(n: number): string {
   const units = ["B", "KB", "MB", "GB", "TB"];
   let i = 0;
-  while (n >= 1000 && i < units.length - 1) {
-    n /= 1000;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
     i++;
   }
   return `${n < 10 && i > 0 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;

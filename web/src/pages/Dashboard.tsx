@@ -95,7 +95,7 @@ function ServerCard({ s, starred, onStar }: { s: Server; starred: boolean; onSta
 function ServerRow({ s, starred, onStar }: { s: Server; starred: boolean; onStar: () => void }) {
   const running = s.status === "running" && !s.job;
   const players = usePlayers(s.name, running);
-  const { address } = useJoinAddress(s.port);
+  const { address } = useJoinAddress(s.port, s.public);
   return (
     <Link to={srv(s.name)} className="group flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-hover/50">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-surface">
@@ -168,7 +168,7 @@ export function Dashboard() {
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-[28px] leading-tight font-medium tracking-tight">Servers</h1>
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          <label className="flex h-9 flex-1 items-center gap-2 rounded-md border border-line bg-surface px-3 transition-colors focus-within:border-fg/30 hover:border-line-strong sm:w-64 sm:flex-none">
+          <label className="flex h-9 flex-1 items-center gap-2 rounded-md border border-line bg-surface px-3 transition-colors focus-within:border-fg/30 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent hover:border-line-strong sm:w-64 sm:flex-none">
             <Search className="h-4 w-4 shrink-0 text-subtle" strokeWidth={1.75} />
             <input
               ref={search}

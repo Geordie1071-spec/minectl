@@ -2,6 +2,7 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -112,5 +113,48 @@ func TestScheduledBackups(t *testing.T) {
 	runner.Wait()
 	if len(ran) != 1 {
 		t.Fatalf("backup ran again: %v", ran)
+	}
+}
+
+func TestRenewPortForwards(t *testing.T) {
+	t.Setenv("MINECTL_CONFIG_DIR", t.TempDir())
+	st := store.New()
+	defer st.Close()
+	runner, err := jobs.New(context.Background(), st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
+	w := New(st, &service.Manager{St: st}, runner)
+	w.Now = func() time.Time { return now }
+	var renewed []string
+	w.renew = func(_ context.Context, _ *service.Manager, name string) error {
+		renewed = append(renewed, name)
+		return errors.New("router unplugged")
+	}
+	old := now.Add(-time.Hour)
+	for _, s := range []domain.Server{
+		{Name: "stale", Public: &domain.Public{Method: "upnp", RefreshedAt: old}},
+		{Name: "fresh", Public: &domain.Public{Method: "nat-pmp", RefreshedAt: now.Add(-time.Minute)}},
+		{Name: "tunnel", Public: &domain.Public{Method: "playit", RefreshedAt: old}},
+		{Name: "private"},
+	} {
+		s := s
+		_ = st.SaveServer(&s)
+	}
+	w.tickPublic(context.Background())
+	if len(renewed) != 1 || renewed[0] != "stale" {
+		t.Fatalf("renewed = %v, want [stale]", renewed)
+	}
+	// A failed renewal waits for the next round instead of retrying every minute.
+	now = now.Add(time.Minute)
+	w.tickPublic(context.Background())
+	if len(renewed) != 1 {
+		t.Fatalf("retried too soon: %v", renewed)
+	}
+	now = now.Add(renewEvery)
+	w.tickPublic(context.Background())
+	if len(renewed) < 2 || renewed[1] != "stale" {
+		t.Fatalf("should retry after %s: %v", renewEvery, renewed)
 	}
 }

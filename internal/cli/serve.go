@@ -12,7 +12,9 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Geordie1071-spec/minectl/internal/api"
@@ -22,6 +24,7 @@ import (
 	"github.com/Geordie1071-spec/minectl/internal/jobs"
 	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/Geordie1071-spec/minectl/internal/store"
+	"github.com/Geordie1071-spec/minectl/internal/update"
 	"github.com/Geordie1071-spec/minectl/internal/watch"
 	"github.com/Geordie1071-spec/minectl/internal/web"
 	"github.com/spf13/cobra"
@@ -113,6 +116,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	restartCh := make(chan struct{}, 1)
 	handler := api.New(api.Config{
 		Manager:       &service.Manager{D: d, St: st, Wait: true},
 		Store:         st,
@@ -122,6 +126,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		TrustProxy:    serveTrustProxy,
 		PublicAddress: strings.TrimSpace(servePublicAddr),
 		UI:            web.Handler(),
+		Restart: func() {
+			select {
+			case restartCh <- struct{}{}:
+			default:
+			}
+		},
 	})
 
 	watcher := watch.New(st, &service.Manager{D: d, St: st}, runner)
@@ -158,10 +168,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}(srv)
 	}
 
+	restart := false
 	select {
 	case err = <-errCh:
 	case <-sigCtx.Done():
 		log.Printf("Shutting down...")
+	case <-restartCh:
+		log.Printf("Updated; restarting onto the new version...")
+		restart = true
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -169,7 +183,21 @@ func runServe(cmd *cobra.Command, args []string) error {
 		_ = srv.Shutdown(shutdownCtx)
 	}
 	waitJobs(runner, cancelJobs)
+	if restart {
+		_ = st.Close()
+		return reexec()
+	}
 	return err
+}
+
+// reexec replaces this process with the binary on disk, keeping the PID so
+// systemd sees the same service.
+func reexec() error {
+	exe, err := update.Executable()
+	if err != nil {
+		return err
+	}
+	return syscall.Exec(exe, os.Args, os.Environ())
 }
 
 // waitJobs gives running jobs a minute to finish before cancelling them.
@@ -283,6 +311,52 @@ WantedBy=multi-user.target
 
 const unitPath = "/etc/systemd/system/minectl.service"
 
+// panelBinaryDir holds a copy of minectl owned by the panel's user, so the
+// panel can update itself. That grants nothing new: the user is in the docker
+// group, which is already as good as root.
+const panelBinaryDir = "/opt/minectl/bin"
+
+// panelBinary moves the running binary into panelBinaryDir, owned by u, and
+// leaves a symlink where it was so "minectl" on the PATH keeps working.
+func panelBinary(bin string, u *user.User) (string, error) {
+	dest := filepath.Join(panelBinaryDir, "minectl")
+	if u.Username == "root" || bin == dest {
+		return bin, nil
+	}
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(u.Gid)
+	if err := os.MkdirAll(panelBinaryDir, 0755); err != nil {
+		return "", err
+	}
+	if err := os.Chown(panelBinaryDir, uid, gid); err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(bin)
+	if err != nil {
+		return "", err
+	}
+	tmp := dest + ".new"
+	if err := os.WriteFile(tmp, data, 0755); err != nil {
+		return "", err
+	}
+	if err := os.Chown(tmp, uid, gid); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		return "", err
+	}
+	link := bin + ".link"
+	_ = os.Remove(link)
+	if err := os.Symlink(dest, link); err != nil {
+		return "", err
+	}
+	if err := os.Rename(link, bin); err != nil {
+		return "", err
+	}
+	fmt.Printf("Moved minectl to %s (owned by %s, so the panel can update itself); %s links to it.\n", dest, u.Username, bin)
+	return dest, nil
+}
+
 func runInstallService(cmd *cobra.Command, args []string) error {
 	if runtime.GOOS != "linux" {
 		return errors.New("install-service needs Linux with systemd")
@@ -309,6 +383,9 @@ func runInstallService(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if bin, err = filepath.EvalSymlinks(bin); err != nil {
+		return err
+	}
+	if bin, err = panelBinary(bin, u); err != nil {
 		return err
 	}
 	execArgs := []string{bin, "serve"}

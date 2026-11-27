@@ -72,6 +72,14 @@ export interface Server {
   next_backup_at?: string;
   last_crash_at?: string;
   last_crash_reason?: string;
+  public?: PublicAccess;
+}
+
+// PublicAccess is how friends outside the local network reach a server: the
+// router forwards its port, or a playit.gg tunnel relays it.
+export interface PublicAccess {
+  method: "upnp" | "nat-pmp" | "playit";
+  address: string;
 }
 
 export interface Properties {
@@ -90,6 +98,7 @@ export interface Properties {
 export interface PanelSettings {
   discord_webhook_set: boolean;
   backup_retention: number;
+  playit_linked: boolean;
 }
 
 export interface Backup {

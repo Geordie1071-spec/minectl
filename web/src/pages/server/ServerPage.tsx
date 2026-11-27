@@ -41,7 +41,7 @@ export function ServerPage() {
   const { name = "" } = useParams();
   const location = useLocation();
   const { data: s, error, isPending, refetch } = useServer(name);
-  const { address: addr } = useJoinAddress(s?.port ?? 25565);
+  const { address: addr } = useJoinAddress(s?.port ?? 25565, s?.public);
   const [localJob, setLocalJob] = useState<string>();
   const [actionError, setActionError] = useState("");
 
