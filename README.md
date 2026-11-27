@@ -56,13 +56,13 @@ This removes the panel service, closes router port forwards and playit.gg tunnel
 
 ### Install on your VPS (one command)
 
-On a fresh **Ubuntu or Debian** VPS (e.g. Hetzner, DigitalOcean), run:
+On a fresh **Ubuntu, Debian, Oracle Linux, Rocky, Alma, RHEL or Fedora** server (e.g. Hetzner, DigitalOcean, Oracle Cloud), run:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash
 ```
 
-This installs **Docker** (if missing) and **minectl**, creates data dirs, and prints next steps. Then:
+This installs **Docker** (if missing) and **minectl**, opens the machine's firewall (`firewalld` or `ufw`) for Minecraft, labels the panel for SELinux where it's on, creates data dirs, and prints next steps. Then:
 
 ```bash
 minectl create -n myserver -t paper -m 4G

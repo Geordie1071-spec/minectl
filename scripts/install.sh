@@ -35,18 +35,34 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# add_to_docker_group lets the user run minectl without sudo. It applies
+# from their next login.
+add_to_docker_group() {
+  if [ "$TARGET_USER" != "root" ]; then
+    sudo usermod -aG docker "$TARGET_USER" 2>/dev/null || true
+    echo "Added $TARGET_USER to the 'docker' group. Log out and back in before using minectl yourself."
+  fi
+}
+
 if [ -z "${MINECTL_SKIP_DOCKER}" ] && ! command -v docker &>/dev/null; then
   if command -v apt-get &>/dev/null; then
     echo "Docker not found. Installing Docker..."
     sudo apt-get update -qq
     sudo apt-get install -y -qq docker.io
     sudo systemctl enable --now docker 2>/dev/null || true
-    if [ -n "$SUDO_USER" ]; then
-      sudo usermod -aG docker "$SUDO_USER" 2>/dev/null || true
-      echo "Added $SUDO_USER to group 'docker'. You may need to log out and back in for it to take effect."
-    else
-      echo "Run: sudo usermod -aG docker \$USER   then log out and back in."
-    fi
+    add_to_docker_group
+  elif command -v dnf &>/dev/null; then
+    # Oracle Linux, Rocky, Alma, RHEL, CentOS Stream and Fedora: Docker's own
+    # packages. --allowerasing swaps out the Podman packages some of these
+    # ship, which clash with Docker.
+    echo "Docker not found. Installing Docker..."
+    OS_ID=$(. /etc/os-release && echo "$ID")
+    DOCKER_REPO="https://download.docker.com/linux/centos/docker-ce.repo"
+    [ "$OS_ID" = "fedora" ] && DOCKER_REPO="https://download.docker.com/linux/fedora/docker-ce.repo"
+    sudo curl -fsSL "$DOCKER_REPO" -o /etc/yum.repos.d/docker-ce.repo
+    sudo dnf install -y -q --allowerasing docker-ce docker-ce-cli containerd.io
+    sudo systemctl enable --now docker 2>/dev/null || true
+    add_to_docker_group
   else
     echo "Docker not found. Install Docker first: https://docs.docker.com/engine/install/"
     exit 1
@@ -54,6 +70,26 @@ if [ -z "${MINECTL_SKIP_DOCKER}" ] && ! command -v docker &>/dev/null; then
 else
   echo "Docker: $(command -v docker || echo 'not found')"
 fi
+
+# Open the firewall when the machine runs one: Minecraft's ports, and the
+# panel's when it will be public. Cloud providers have their own firewall too.
+open_ports() {
+  local ports="25565-25575"
+  [ -n "$DOMAIN" ] && ports="$ports 80 443"
+  if command -v firewall-cmd &>/dev/null && sudo firewall-cmd --state &>/dev/null; then
+    echo "Opening ports in firewalld: $ports"
+    for p in $ports; do
+      sudo firewall-cmd -q --permanent --add-port="${p}/tcp"
+    done
+    sudo firewall-cmd -q --reload
+  elif command -v ufw &>/dev/null && sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+    echo "Opening ports in ufw: $ports"
+    for p in $ports; do
+      sudo ufw allow "${p/-/:}/tcp" >/dev/null
+    done
+  fi
+}
+open_ports
 
 VERSION="${MINECTL_VERSION:-}"
 REPO_PATH="${REPO#https://github.com/}"
@@ -150,6 +186,16 @@ if [ -n "$PANEL" ]; then
   [ -n "$EMAIL" ] && PANEL_ARGS="$PANEL_ARGS --email $EMAIL"
   # shellcheck disable=SC2086
   sudo "${INSTALL_DIR}/${BINARY}" serve install-service --user "$TARGET_USER" $PANEL_ARGS
+  # With SELinux enforcing, systemd only runs binaries labelled as such. The
+  # folder is labelled too, so binaries "minectl update" writes there inherit it.
+  if command -v getenforce &>/dev/null && [ "$(getenforce)" = "Enforcing" ] && [ -d /opt/minectl/bin ]; then
+    echo "Labelling the panel's binary for SELinux..."
+    sudo chcon -R -t bin_t /opt/minectl/bin
+    if command -v semanage &>/dev/null; then
+      sudo semanage fcontext -a -t bin_t '/opt/minectl/bin(/.*)?' 2>/dev/null || true
+    fi
+    sudo systemctl restart minectl
+  fi
   if [ -z "$DOMAIN" ]; then
     echo ""
     echo "The panel listens on 127.0.0.1:8080. From your computer, run:"
@@ -163,5 +209,5 @@ echo "Next steps:"
 echo "  1. Create a server:  minectl create -n myserver -t paper -m 4G"
 echo "  2. With a modpack:   minectl create -n rlcraft -t forge -m 4G --modpack rl-craft"
 echo "  3. List servers:      minectl list"
-echo "  4. Open port 25565 in your firewall so players can connect."
+echo "  4. On a cloud server, also open TCP 25565-25575 (and 80/443 for the panel) in your provider's firewall."
 echo ""
