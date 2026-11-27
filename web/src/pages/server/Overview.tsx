@@ -102,9 +102,11 @@ function InternetAccess({ s, runJob }: TabProps) {
           <CopyButton text={address} label="Copy address" />
         </p>
         <p className="mt-3 text-[13px] text-muted">
-          If they can't connect, open TCP port {s.port} in your firewall: in your provider's cloud firewall, and on the machine with{" "}
+          If they can't connect,{" "}
+          {(where.firewall ?? "open TCP {port} in your cloud provider's firewall").replace("{port}", String(s.port))}, and on the machine with{" "}
           <code className="font-mono text-fg">sudo ufw allow {s.port}/tcp</code>.
         </p>
+        {where.tip && <p className="mt-2 text-[13px] text-muted">{where.tip}</p>}
       </Card>
     );
   }

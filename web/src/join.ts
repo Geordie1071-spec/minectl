@@ -9,6 +9,11 @@ export interface PanelAddress {
   // hosted is true on a machine that's on the internet directly (a VPS):
   // its own address works for everyone and nothing needs forwarding.
   hosted: boolean;
+  // firewall says where to open a port in the cloud provider's firewall,
+  // with {port} for the port.
+  firewall?: string;
+  // tip is one more recommendation for the cloud provider's console.
+  tip?: string;
 }
 
 export const useAddress = () =>

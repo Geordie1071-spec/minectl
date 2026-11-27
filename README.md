@@ -49,27 +49,42 @@ A database written by a newer minectl isn't opened by an older one, so going bac
 ### Uninstall
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash
+minectl uninstall              # worlds, backups and settings are kept
+minectl uninstall --purge      # also delete them
 ```
 
-This removes the panel service, closes router port forwards and playit.gg tunnels, stops and removes the Minecraft server containers, and removes the binary. Worlds, backups and settings are kept. To delete those too, add `-s -- --purge` after `bash`. Add `--yes` to skip the confirmation.
+This removes the panel service, closes router port forwards and playit.gg tunnels, stops and removes the Minecraft server containers, and removes the binary. `--purge` also deletes worlds, backups and settings; add `--keep-data` to keep the worlds and backups. Add `--yes` to skip the confirmation.
+
+If the `minectl` binary is already gone, the same steps run from the script: `curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash` (add `-s -- --purge` to purge).
 
 ### Install on your VPS (one command)
 
-On a fresh **Ubuntu, Debian, Oracle Linux, Rocky, Alma, RHEL or Fedora** server (e.g. Hetzner, DigitalOcean, Oracle Cloud), run:
+**Before installing, open the ports in your provider's console.** Most clouds filter traffic before it reaches the machine, and minectl doesn't touch your cloud account, so this one step is yours. Open TCP **25565-25575** for players, and **80** and **443** if you'll run the panel on a domain. The install script repeats where to do it once it knows which provider it's on.
+
+| Provider | Easiest image (SSH user) | Open the ports | Also recommended |
+| --- | --- | --- | --- |
+| **Oracle Cloud** | Ubuntu (`ubuntu`) or Oracle Linux (`opc`); an Ampere A1 shape fits well in the free tier | Networking › Virtual cloud networks › your VCN › Security Lists › Add Ingress Rules, source `0.0.0.0/0` | Nothing: the installer opens the machine's own iptables or firewalld too |
+| **AWS** | Ubuntu (`ubuntu`) or Amazon Linux (`ec2-user`) | EC2 › Instances › Security › the security group › Edit inbound rules, source `0.0.0.0/0` | Attach an Elastic IP, or the address changes when the instance stops and starts |
+| **Google Cloud** | Debian or Ubuntu (your Google username, via the SSH button) | VPC network › Firewall › Create firewall rule, all instances, source `0.0.0.0/0`. For 80 and 443, tick "Allow HTTP/HTTPS traffic" on the VM | Promote the external IP to static, or it changes when the VM stops and starts |
+| **Azure** | Ubuntu (`azureuser`) | The VM › Networking › Add inbound port rule | Nothing |
+| **Hetzner, DigitalOcean, Vultr** | Ubuntu or Debian (`root`) | Nothing, unless you added a Cloud Firewall: then add the ports to it | Nothing |
+
+On all of these, minectl works out the machine's public IP by itself, so the panel and `minectl list` show players the right address. On AWS, Google Cloud, Azure and Oracle the machine only sees a private IP, and minectl asks the provider (or, on Oracle and Azure, an IP lookup service) for the public one.
+
+For a panel with HTTPS, point your domain's DNS A record at the machine before installing; `install-service` warns if it doesn't point there yet. If you log in as a normal user rather than root, log out and back in after the install so you can use Docker without sudo.
+
+Then, on a fresh **Ubuntu, Debian, Amazon Linux, Oracle Linux, Rocky, Alma, RHEL or Fedora** server, run:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash
 ```
 
-This installs **Docker** (if missing) and **minectl**, opens the machine's firewall (`firewalld` or `ufw`) for Minecraft, labels the panel for SELinux where it's on, creates data dirs, and prints next steps. Then:
+This installs **Docker** (if missing) and **minectl**, opens the machine's firewall (`firewalld`, `ufw`, or the plain `iptables` rules on Oracle Cloud's Ubuntu images) for Minecraft, labels the panel for SELinux where it's on, creates data dirs, and prints next steps. On the providers above it also prints the machine's public IP and the console steps for that provider. Then:
 
 ```bash
 minectl create -n myserver -t paper -m 4G
 minectl list
 ```
-
-**Firewall:** open TCP port **25565** so players can connect (e.g. Hetzner Cloud Firewall, or `sudo ufw allow 25565 && sudo ufw reload`).
 
 To skip Docker install (you already have it): `MINECTL_SKIP_DOCKER=1 curl -sSL ... | bash`  
 To pin version: `MINECTL_VERSION=v2.0.0 curl -sSL ... | bash`
@@ -139,7 +154,7 @@ minectl public survival --off      # back to your network only
 
 minectl first asks your router to forward the port (UPnP or NAT-PMP) and shows your public address. If the router has that turned off, or your internet provider shares one address between many customers (CGNAT, common on mobile and some fibre connections), it uses a free [playit.gg](https://playit.gg) tunnel instead. Link playit once, with `minectl playit link` or under Panel settings, and approve minectl in your browser. minectl then runs the playit agent in Docker and creates a tunnel for each server. Use `--via router` or `--via playit` to pick one.
 
-On a VPS there's nothing to forward: the machine is already on the internet, and the panel says so. Open the server's port in the firewall instead. Some clouds (Azure, Oracle, AWS, Google Cloud) only show the machine a private IP, so start the panel with `--domain` or `--public-address` there. minectl then knows its public address, and the CLI uses it too.
+On a VPS there's nothing to forward: the machine is already on the internet, and the panel says so. Open the server's port in the firewall instead. Some clouds (AWS, Google Cloud, Azure, Oracle) only show the machine a private IP; minectl asks the provider for the public one, so the panel and `minectl list` show the right join address without any flags. `--domain` or `--public-address` still take priority, for example to show players a domain instead of an IP.
 
 The panel renews router forwards every 20 minutes, which also restores them after the router restarts. With only the CLI, run `minectl public` again after a router restart. Many routers can't loop back to their own public address, so on your own network join with the local address.
 
@@ -200,6 +215,7 @@ make smoke                    # Playwright smoke test against the built binary
 | `versions` | List available Minecraft versions for a server type |
 | `serve` | Run the web panel and API |
 | `update` | Update minectl to the latest release (`--check` to only look) |
+| `uninstall` | Remove minectl, the panel service and the server containers (`--purge` to delete worlds too) |
 
 ## Config and data
 

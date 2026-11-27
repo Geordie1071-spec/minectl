@@ -23,9 +23,10 @@ func publicManager(t *testing.T) *Manager {
 		t.Fatal(err)
 	}
 	// Behave like a home machine, whatever network the tests run on.
-	old := hosted
+	old, oldCloud := hosted, cloud
 	hosted = func() (net.IP, bool) { return net.ParseIP("192.168.1.20"), false }
-	t.Cleanup(func() { hosted = old })
+	cloud = func() *expose.Cloud { return nil }
+	t.Cleanup(func() { hosted, cloud = old, oldCloud })
 	return &Manager{St: st}
 }
 
@@ -42,6 +43,12 @@ func TestMakePublicOnAVPS(t *testing.T) {
 	}
 	if s, _ := m.St.GetServer("survival"); s.Public != nil {
 		t.Fatal("nothing should be recorded")
+	}
+
+	cloud = func() *expose.Cloud { return &expose.Cloud{Provider: "oracle", Name: "Oracle Cloud"} }
+	_, err = m.MakePublic(context.Background(), "survival", ViaAuto, NopEvents{})
+	if err == nil || !strings.Contains(err.Error(), "open TCP 25570 in the subnet's security list") {
+		t.Fatalf("err = %v", err)
 	}
 }
 

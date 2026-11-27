@@ -17,7 +17,7 @@ var commandGroups = []struct {
 	{"servers", "Servers", []string{"create", "list", "start", "stop", "restart", "delete", "logs", "stats", "exec"}},
 	{"world", "World, mods and settings", []string{"backup", "props", "mods", "modpack", "upgrade", "resize", "recommend", "versions"}},
 	{"share", "Panel and sharing", []string{"serve", "public", "playit"}},
-	{"other", "Other", []string{"update", "help"}},
+	{"other", "Other", []string{"update", "uninstall", "help"}},
 }
 
 // setupHelp groups the commands and styles help. It runs from Execute, after

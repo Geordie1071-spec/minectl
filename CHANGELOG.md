@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- On AWS, Google Cloud, Azure and Oracle Cloud, minectl finds the machine's public IP itself, so the panel and `minectl list` show the right join address without `--public-address`.
+- minectl recognises AWS, Google Cloud, Azure, Oracle Cloud, Hetzner, DigitalOcean and Vultr, and recommends the easiest setup for each: where to open ports in that provider's console, and on AWS and Google Cloud, keeping the IP from changing. The advice shows in the panel, `minectl public`, `install-service` and at the end of the install script. minectl never needs access to your cloud account.
+- The install script installs Docker on Amazon Linux.
+- The install script's reminder to log out and back in (for Docker without sudo) moved to the next steps, where it's seen.
+- The README has a setup table for each provider.
+- The install script and `install-service` open ports on Oracle Cloud's Ubuntu images, which reject everything but SSH in plain iptables.
+- `minectl uninstall` removes minectl the way `minectl update` updates it: the panel service, port forwards and tunnels, server containers and the binary, with `--purge` to delete worlds and settings too.
+- The install script's fallback build with Go works: it passed `go install` a URL instead of the module path.
+- `sudo minectl serve install-service --domain` warns when the domain doesn't point at the machine yet, before the HTTPS certificate fails.
+
 ## 2.0.2 (2026-11-27)
 
 - When your user can't use Docker yet (just added to the docker group), minectl says so once and explains the fix, instead of repeating "permission denied" every few seconds.

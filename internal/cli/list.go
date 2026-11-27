@@ -46,6 +46,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		if cfg, err := st.GetConfig(); err == nil {
 			publicAddr = cfg.PublicAddress
 		}
+		if ip, ok := expose.Hosted(); ok && publicAddr == "" {
+			publicAddr = ip.String()
+		}
 		fmt.Print(renderListTable(servers, listAll, publicAddr))
 	}
 	return nil
@@ -67,8 +70,8 @@ func renderListTable(servers []domain.Server, all bool, publicAddr string) strin
 		return "No servers yet. Create one: " + accent("minectl create -n survival -t paper") + "\n"
 	}
 	// What players type: the server's forward or tunnel, else the panel's
-	// public address (a cloud machine only sees its private IP), else this
-	// machine's address on the local network.
+	// public address or the machine's public IP (a cloud machine only sees
+	// its private IP), else its address on the local network.
 	host := publicAddr
 	if host == "" {
 		host = expose.LANIP()

@@ -119,15 +119,25 @@ func (a *API) recommend(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 }
 
 // address tells the UI what players should type to join: the configured
-// public address if there is one, and this machine's LAN address. Hosted is
-// true on a machine that's on the internet directly, such as a VPS, where
-// servers need no port forwarding.
+// public address, else the public IP a cloud provider forwards to this
+// machine, and this machine's LAN address. Hosted is true on a machine that's
+// on the internet directly, such as a VPS, where servers need no port
+// forwarding. Firewall says where to open a port in the cloud's firewall, and
+// tip is any other recommendation for the cloud's console.
 func (a *API) address(w http.ResponseWriter, r *http.Request, c *reqCtx) {
-	_, direct := expose.Hosted()
+	ip, direct := expose.Hosted()
+	cloud := expose.DetectCloud()
+	lan := expose.LANIP()
+	public := a.cfg.PublicAddress
+	if public == "" && direct && ip.String() != lan {
+		public = ip.String()
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"public": a.cfg.PublicAddress,
-		"lan":    expose.LANIP(),
-		"hosted": a.cfg.Hosted || direct,
+		"public":   public,
+		"lan":      lan,
+		"hosted":   a.cfg.Hosted || direct,
+		"firewall": cloud.Firewall("{port}"),
+		"tip":      cloud.Tip(),
 	})
 }
 

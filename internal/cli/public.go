@@ -50,7 +50,37 @@ var playitUnlinkCmd = &cobra.Command{
 	RunE:  runPlayitUnlink,
 }
 
+// cloudCheckCmd is for install.sh: on a known cloud it prints the public IP,
+// where to open ports in the provider's firewall and any other tip, and
+// nothing elsewhere.
+var cloudCheckCmd = &cobra.Command{
+	Use:    "cloud-check",
+	Hidden: true,
+	Args:   cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		c := expose.DetectCloud()
+		if c == nil {
+			return
+		}
+		if c.IP != nil {
+			fmt.Printf("This machine runs on %s, with the public IP %s.\n", c.Name, c.IP)
+		}
+		ports := "25565-25575"
+		if cloudCheckPanel {
+			ports += ", 80 and 443"
+		}
+		fmt.Printf("On %s, %s.\n", c.Name, c.Firewall(ports))
+		if tip := c.Tip(); tip != "" {
+			fmt.Println(tip)
+		}
+	},
+}
+
+var cloudCheckPanel bool
+
 func init() {
+	cloudCheckCmd.Flags().BoolVar(&cloudCheckPanel, "panel", false, "include the panel's ports")
+	rootCmd.AddCommand(cloudCheckCmd)
 	publicCmd.Flags().StringVar(&publicVia, "via", service.ViaAuto, "auto, router, or playit")
 	publicCmd.Flags().BoolVar(&publicOff, "off", false, "stop forwarding and close the tunnel")
 	playitCmd.AddCommand(playitLinkCmd, playitUnlinkCmd)

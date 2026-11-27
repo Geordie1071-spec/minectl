@@ -21,6 +21,7 @@ import (
 	"github.com/Geordie1071-spec/minectl/internal/auth"
 	"github.com/Geordie1071-spec/minectl/internal/config"
 	"github.com/Geordie1071-spec/minectl/internal/docker"
+	"github.com/Geordie1071-spec/minectl/internal/expose"
 	"github.com/Geordie1071-spec/minectl/internal/jobs"
 	"github.com/Geordie1071-spec/minectl/internal/service"
 	"github.com/Geordie1071-spec/minectl/internal/store"
@@ -378,7 +379,36 @@ func openPanelPorts() {
 			_ = exec.Command("ufw", "allow", port).Run()
 		}
 		fmt.Println("Opened ports 80 and 443 in ufw.")
+		return
 	}
+	if openIptables("80", "443") {
+		fmt.Println("Opened ports 80 and 443 in iptables.")
+	}
+}
+
+// openIptables accepts TCP ports in the INPUT chain when it rejects
+// everything else and no firewalld or ufw manages it, as on Oracle Cloud's
+// Ubuntu images. It reports whether that was needed.
+func openIptables(ports ...string) bool {
+	out, err := exec.Command("iptables", "-S", "INPUT").Output()
+	if err != nil || !strings.Contains(string(out), "-j REJECT") {
+		return false
+	}
+	for _, port := range ports {
+		rule := []string{"INPUT", "-p", "tcp", "--dport", port, "-j", "ACCEPT"}
+		if exec.Command("iptables", append([]string{"-C"}, rule...)...).Run() == nil {
+			continue
+		}
+		if out, err := exec.Command("iptables", append([]string{"-I", "INPUT", "1"}, rule[1:]...)...).CombinedOutput(); err != nil {
+			fmt.Printf("Warning: couldn't open port %s in iptables (%v): %s\n", port, err, strings.TrimSpace(string(out)))
+			return false
+		}
+	}
+	// Keep the rules after a reboot.
+	if exec.Command("netfilter-persistent", "save").Run() != nil {
+		fmt.Println("Warning: the iptables rules last until the next reboot. To keep them: sudo apt install iptables-persistent")
+	}
+	return true
 }
 
 // panelBinary moves the running binary into panelBinaryDir, owned by u, and
@@ -508,9 +538,38 @@ func runInstallService(cmd *cobra.Command, args []string) error {
 		time.Sleep(500 * time.Millisecond)
 	}
 	if serveDomain != "" {
-		fmt.Printf("\nOpen https://%s/setup (make sure ports 80 and 443 are open in your firewall).\n", serveDomain)
+		fmt.Printf("\nOpen https://%s/setup\n", serveDomain)
+		if c := expose.DetectCloud(); c != nil {
+			fmt.Printf("On %s, also %s.\n", c.Name, c.Firewall("80 and 443"))
+			if tip := c.Tip(); tip != "" {
+				fmt.Println(tip)
+			}
+		} else {
+			fmt.Println("Make sure ports 80 and 443 are open in your cloud provider's firewall.")
+		}
+		checkDomainDNS(serveDomain)
 	}
 	return nil
+}
+
+// checkDomainDNS warns when the panel's domain doesn't point at this machine
+// yet: the HTTPS certificate can't be issued until it does.
+func checkDomainDNS(domain string) {
+	ip, ok := expose.Hosted()
+	if !ok {
+		return
+	}
+	addrs, err := net.LookupHost(domain)
+	if err != nil {
+		fmt.Printf("Warning: %s doesn't resolve yet. Add a DNS A record for it pointing at %s.\n", domain, ip)
+		return
+	}
+	for _, a := range addrs {
+		if a == ip.String() {
+			return
+		}
+	}
+	fmt.Printf("Warning: %s points at %s, not this machine (%s). Unless that's a proxy such as Cloudflare, change its DNS A record to %s: HTTPS won't work until it points here.\n", domain, strings.Join(addrs, ", "), ip, ip)
 }
 
 func runResetPassword(cmd *cobra.Command, args []string) error {

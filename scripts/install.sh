@@ -36,11 +36,13 @@ while [ $# -gt 0 ]; do
 done
 
 # add_to_docker_group lets the user run minectl without sudo. It applies
-# from their next login.
+# from their next login, which the next steps remind them of.
+RELOGIN=
 add_to_docker_group() {
   if [ "$TARGET_USER" != "root" ]; then
     sudo usermod -aG docker "$TARGET_USER" 2>/dev/null || true
-    echo "Added $TARGET_USER to the 'docker' group. Log out and back in before using minectl yourself."
+    echo "Added $TARGET_USER to the 'docker' group."
+    RELOGIN=1
   fi
 }
 
@@ -49,6 +51,12 @@ if [ -z "${MINECTL_SKIP_DOCKER}" ] && ! command -v docker &>/dev/null; then
     echo "Docker not found. Installing Docker..."
     sudo apt-get update -qq
     sudo apt-get install -y -qq docker.io
+    sudo systemctl enable --now docker 2>/dev/null || true
+    add_to_docker_group
+  elif command -v dnf &>/dev/null && [ "$(. /etc/os-release && echo "$ID")" = "amzn" ]; then
+    # Amazon Linux packages Docker itself; Docker's repositories don't support it.
+    echo "Docker not found. Installing Docker..."
+    sudo dnf install -y -q docker
     sudo systemctl enable --now docker 2>/dev/null || true
     add_to_docker_group
   elif command -v dnf &>/dev/null; then
@@ -87,6 +95,15 @@ open_ports() {
     for p in $ports; do
       sudo ufw allow "${p/-/:}/tcp" >/dev/null
     done
+  elif command -v iptables &>/dev/null && sudo iptables -S INPUT 2>/dev/null | grep -q -- "-j REJECT"; then
+    # Oracle Cloud's Ubuntu images reject everything but SSH in plain iptables.
+    echo "Opening ports in iptables: $ports"
+    for p in $ports; do
+      sudo iptables -C INPUT -p tcp --dport "${p/-/:}" -j ACCEPT 2>/dev/null ||
+        sudo iptables -I INPUT 1 -p tcp --dport "${p/-/:}" -j ACCEPT
+    done
+    sudo netfilter-persistent save &>/dev/null ||
+      echo "Warning: these rules last until the next reboot. To keep them: sudo apt install iptables-persistent"
   fi
 }
 open_ports
@@ -146,7 +163,7 @@ if [ -z "${INSTALLED}" ]; then
   if command -v go &>/dev/null; then
     echo "Download failed. Installing from source with Go..."
     GOBIN=$(go env GOPATH 2>/dev/null)/bin
-    (cd /tmp && go install "${REPO}/cmd/minectl@${VERSION}" 2>/dev/null) || (cd /tmp && go install "${REPO}/cmd/minectl@latest" 2>/dev/null)
+    (cd /tmp && go install "github.com/${REPO_PATH}/cmd/minectl@${VERSION}" 2>/dev/null) || (cd /tmp && go install "github.com/${REPO_PATH}/cmd/minectl@latest" 2>/dev/null)
     if [ -f "${GOBIN}/${BINARY}" ]; then
       sudo mkdir -p "$INSTALL_DIR"
       sudo cp "${GOBIN}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
@@ -157,7 +174,7 @@ if [ -z "${INSTALLED}" ]; then
     fi
   else
     echo "Could not install minectl (no release for this arch or Go not installed)."
-    echo "  Option 1: Build on this machine: go install ${REPO}/cmd/minectl@latest"
+    echo "  Option 1: Build on this machine: go install github.com/${REPO_PATH}/cmd/minectl@latest"
     echo "  Option 2: Download from ${REPO}/releases"
     exit 1
   fi
@@ -206,8 +223,20 @@ fi
 
 echo ""
 echo "Next steps:"
+if [ -n "$RELOGIN" ]; then
+  echo "  0. Log out and SSH back in (or run: newgrp docker), so you can use Docker without sudo."
+fi
 echo "  1. Create a server:  minectl create -n myserver -t paper -m 4G"
 echo "  2. With a modpack:   minectl create -n rlcraft -t forge -m 4G --modpack rl-craft"
 echo "  3. List servers:      minectl list"
-echo "  4. On a cloud server, also open TCP 25565-25575 (and 80/443 for the panel) in your provider's firewall."
+CLOUD_ARGS=""
+[ -n "$DOMAIN" ] && CLOUD_ARGS="--panel"
+# shellcheck disable=SC2086
+CLOUD=$("${INSTALL_DIR}/${BINARY}" cloud-check $CLOUD_ARGS 2>/dev/null || true)
+if [ -n "$CLOUD" ]; then
+  echo "  4. Let players in:"
+  echo "$CLOUD" | sed 's/^/     /'
+else
+  echo "  4. On a cloud server, also open TCP 25565-25575 (and 80/443 for the panel) in your provider's firewall."
+fi
 echo ""
