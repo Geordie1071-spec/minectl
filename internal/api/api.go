@@ -44,6 +44,9 @@ type Config struct {
 	PublicAddress string
 	// UI serves everything outside /api/. Nil serves a placeholder page.
 	UI http.Handler
+	// Restart replaces the panel process with the binary on disk, after an
+	// update. Nil turns off updating from the panel.
+	Restart func()
 }
 
 type API struct {
@@ -55,6 +58,7 @@ type API struct {
 	setupMu  sync.Mutex
 	ipLimit  *auth.Limiter
 	usrLimit *auth.Limiter
+	updates  updateCache
 }
 
 // level is what a route requires of the caller.
@@ -158,6 +162,8 @@ func (a *API) routes() []route {
 		{"PUT /api/v1/servers/{name}/backup-schedule", serverAdmin, a.setBackupSchedule},
 		{"GET /api/v1/servers/{name}/properties", serverViewer, a.getProperties},
 		{"PUT /api/v1/servers/{name}/properties", serverAdmin, a.setProperties},
+		{"POST /api/v1/servers/{name}/public", serverAdmin, a.makePublic},
+		{"DELETE /api/v1/servers/{name}/public", serverAdmin, a.makePrivate},
 
 		{"GET /api/v1/jobs", admin, a.listJobs},
 		{"GET /api/v1/jobs/{id}", user, a.getJob},
@@ -172,6 +178,11 @@ func (a *API) routes() []route {
 		{"GET /api/v1/settings", admin, a.getSettings},
 		{"PUT /api/v1/settings", admin, a.putSettings},
 		{"POST /api/v1/settings/test-notification", admin, a.testNotification},
+		{"POST /api/v1/settings/playit/claim", admin, a.startPlayitClaim},
+		{"POST /api/v1/settings/playit/claim/{code}", admin, a.checkPlayitClaim},
+		{"DELETE /api/v1/settings/playit", admin, a.unlinkPlayit},
+		{"GET /api/v1/update", admin, a.getUpdate},
+		{"POST /api/v1/update", admin, a.applyUpdate},
 	}
 }
 

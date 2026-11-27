@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	"net"
+	"github.com/Geordie1071-spec/minectl/internal/expose"
 	"net/http"
 	"strconv"
 	"strings"
@@ -121,28 +121,11 @@ func (a *API) recommend(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 // address tells the UI what players should type to join: the configured
 // public address if there is one, and this machine's LAN address.
 func (a *API) address(w http.ResponseWriter, r *http.Request, c *reqCtx) {
-	writeJSON(w, http.StatusOK, map[string]string{"public": a.cfg.PublicAddress, "lan": lanIP()})
+	writeJSON(w, http.StatusOK, map[string]string{"public": a.cfg.PublicAddress, "lan": expose.LANIP()})
 }
 
 // lanIP returns the address other machines on the local network reach this
 // one at. Dialing UDP sends no packets; it only picks the outgoing route.
-func lanIP() string {
-	conn, err := net.Dial("udp", "192.0.2.1:9")
-	if err == nil {
-		defer conn.Close()
-		if a, ok := conn.LocalAddr().(*net.UDPAddr); ok && !a.IP.IsLoopback() {
-			return a.IP.String()
-		}
-	}
-	addrs, _ := net.InterfaceAddrs()
-	for _, addr := range addrs {
-		if n, ok := addr.(*net.IPNet); ok && n.IP.To4() != nil && n.IP.IsPrivate() {
-			return n.IP.String()
-		}
-	}
-	return ""
-}
-
 func (a *API) host(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 	if !a.needDocker(w) {
 		return

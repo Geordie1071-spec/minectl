@@ -35,6 +35,17 @@ minectl exec survival "say Hello"
 
 Note: the install script also sets up bash tab-completion for `minectl` automatically.
 
+### Updating
+
+```bash
+sudo minectl update            # latest release; restarts the panel service if it's running
+minectl update --check         # just say whether there's a new version
+```
+
+The download is checked against the release's checksums before it replaces the binary. Minecraft servers keep running through an update. Admins also see a notice in the panel when a new version is out, with an **Update now** button: the panel replaces its own binary and restarts, and the page reloads when it's back. `install-service` keeps the panel's binary at `/opt/minectl/bin/minectl`, owned by the panel's user, and links `/usr/local/bin/minectl` to it, so the button works. Re-running the install script also updates, and restarts the panel.
+
+A database written by a newer minectl isn't opened by an older one, so going back a version can't hide or damage your servers. `minectl update --version v2.0.1` installs a specific release.
+
 ### Uninstall
 
 To remove the `minectl` binary:
@@ -117,6 +128,19 @@ minectl props unset survival pvp                         # back to Minecraft's d
 
 Saving restarts the server to apply the change. Unsetting a setting writes Minecraft's default back to `server.properties`. Settings minectl doesn't manage are left as they are.
 
+### Hosting from home
+
+Running minectl on your own computer? Make a server public so friends elsewhere can join:
+
+```bash
+minectl public survival            # or press "Make public" on the server's Overview
+minectl public survival --off      # back to your network only
+```
+
+minectl first asks your router to forward the port (UPnP or NAT-PMP) and shows your public address. If the router has that turned off, or your internet provider shares one address between many customers (CGNAT, common on mobile and some fibre connections), it uses a free [playit.gg](https://playit.gg) tunnel instead. Link playit once, with `minectl playit link` or under Panel settings, and approve minectl in your browser. minectl then runs the playit agent in Docker and creates a tunnel for each server. Use `--via router` or `--via playit` to pick one.
+
+The panel renews router forwards every 20 minutes, which also restores them after the router restarts. With only the CLI, run `minectl public` again after a router restart. Many routers can't loop back to their own public address, so on your own network join with the local address.
+
 ### API
 
 Everything the panel does goes through a JSON API under `/api/v1`. Create a personal token with `POST /api/v1/tokens` and send it as `Authorization: Bearer mct_...`. A token has the same permissions as its owner.
@@ -153,12 +177,15 @@ make smoke                    # Playwright smoke test against the built binary
 | `backup create/list/restore` | Backups |
 | `backup schedule` | Back up automatically: `hourly`, `6h`, `daily` or `off` (runs while the panel is running) |
 | `props` / `props set` / `props unset` | Show or change game settings |
+| `public` | Let friends join from the internet (router port forwarding or a playit.gg tunnel; `--off` to undo) |
+| `playit link` / `playit unlink` | Link a playit.gg account for tunnels |
 | `mods add/list` | Modrinth mods (Fabric/Forge) |
 | `modpack set/info/search` | Modpack (Modrinth) |
 | `upgrade` | Upgrade MC version |
 | `resize` / `recommend` | Change or preview memory and CPU |
 | `versions` | List available Minecraft versions for a server type |
 | `serve` | Run the web panel and API |
+| `update` | Update minectl to the latest release (`--check` to only look) |
 
 ## Config and data
 

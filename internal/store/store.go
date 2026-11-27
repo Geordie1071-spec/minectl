@@ -141,6 +141,14 @@ func openDB(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// NewerSchemaError means the database was written by a newer minectl. Using it
+// anyway could hide or damage what the newer version stored.
+type NewerSchemaError struct{ Have, Know int }
+
+func (e *NewerSchemaError) Error() string {
+	return fmt.Sprintf("the database was written by a newer minectl (schema %d; this version knows up to %d). Update minectl: minectl update, or re-run the install script", e.Have, e.Know)
+}
+
 func migrate(db *sql.DB) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -151,7 +159,10 @@ func migrate(db *sql.DB) error {
 	if err := tx.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		return err
 	}
-	if version >= len(migrations) {
+	if version > len(migrations) {
+		return &NewerSchemaError{Have: version, Know: len(migrations)}
+	}
+	if version == len(migrations) {
 		return nil
 	}
 	for i := version; i < len(migrations); i++ {

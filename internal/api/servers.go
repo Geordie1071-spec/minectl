@@ -39,10 +39,16 @@ type serverView struct {
 	DataDir       string       `json:"data_dir,omitempty"`
 	Backups       *int         `json:"backups,omitempty"`
 
-	BackupSchedule  string     `json:"backup_schedule,omitempty"`
-	NextBackupAt    *time.Time `json:"next_backup_at,omitempty"`
-	LastCrashAt     *time.Time `json:"last_crash_at,omitempty"`
-	LastCrashReason string     `json:"last_crash_reason,omitempty"`
+	BackupSchedule  string      `json:"backup_schedule,omitempty"`
+	NextBackupAt    *time.Time  `json:"next_backup_at,omitempty"`
+	LastCrashAt     *time.Time  `json:"last_crash_at,omitempty"`
+	LastCrashReason string      `json:"last_crash_reason,omitempty"`
+	Public          *publicView `json:"public,omitempty"`
+}
+
+type publicView struct {
+	Method  string `json:"method"`
+	Address string `json:"address"`
 }
 
 func (a *API) view(s *domain.Server, role string, detail bool) serverView {
@@ -55,6 +61,9 @@ func (a *API) view(s *domain.Server, role string, detail bool) serverView {
 	}
 	if v.Mods == nil {
 		v.Mods = []domain.Mod{}
+	}
+	if s.Public != nil {
+		v.Public = &publicView{Method: s.Public.Method, Address: s.Public.Address}
 	}
 	if s.ModpackSource != nil && s.ModpackID != nil {
 		mp := &modpackView{Source: *s.ModpackSource, ID: *s.ModpackID}

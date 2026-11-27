@@ -64,6 +64,11 @@ func (a *API) setProperties(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 type settingsView struct {
 	DiscordWebhookSet bool `json:"discord_webhook_set"`
 	BackupRetention   int  `json:"backup_retention"`
+	PlayitLinked      bool `json:"playit_linked"`
+}
+
+func newSettingsView(cfg *domain.Config) settingsView {
+	return settingsView{DiscordWebhookSet: cfg.DiscordWebhook != "", BackupRetention: cfg.BackupRetention, PlayitLinked: cfg.PlayitSecret != ""}
 }
 
 func (a *API) getSettings(w http.ResponseWriter, r *http.Request, c *reqCtx) {
@@ -72,7 +77,7 @@ func (a *API) getSettings(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, settingsView{DiscordWebhookSet: cfg.DiscordWebhook != "", BackupRetention: cfg.BackupRetention})
+	writeJSON(w, http.StatusOK, newSettingsView(cfg))
 }
 
 func (a *API) putSettings(w http.ResponseWriter, r *http.Request, c *reqCtx) {
@@ -113,7 +118,7 @@ func (a *API) putSettings(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 		return
 	}
 	a.audit(r, c, "settings.update", "", strings.Join(changed, ", "))
-	writeJSON(w, http.StatusOK, settingsView{DiscordWebhookSet: cfg.DiscordWebhook != "", BackupRetention: cfg.BackupRetention})
+	writeJSON(w, http.StatusOK, newSettingsView(cfg))
 }
 
 func (a *API) testNotification(w http.ResponseWriter, r *http.Request, c *reqCtx) {

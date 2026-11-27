@@ -53,6 +53,12 @@ func (m *Manager) Delete(ctx context.Context, name string, purge bool, ev Events
 		return err
 	}
 	defer unlock()
+	if s, err := m.St.GetServer(name); err == nil && s != nil && s.Public != nil {
+		m.unexpose(ctx, s, ev)
+		if err := m.St.SaveServer(s); err != nil {
+			return err
+		}
+	}
 	return server.Delete(ctx, m.D, m.St, name, purge, ev.Progress)
 }
 

@@ -4,6 +4,7 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/Geordie1071-spec/minectl/internal/docker"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
+	"github.com/Geordie1071-spec/minectl/internal/expose"
 	"github.com/Geordie1071-spec/minectl/internal/jobs"
 	"github.com/Geordie1071-spec/minectl/internal/notify"
 	"github.com/Geordie1071-spec/minectl/internal/server"
@@ -25,6 +27,9 @@ const (
 	crashLoopWindow = 10 * time.Minute
 	// An oom event this close before a die explains it.
 	oomWindow = 30 * time.Second
+	// Router port forwards are re-added this often, which brings them back
+	// after the router restarts.
+	renewEvery = 20 * time.Minute
 )
 
 type Watcher struct {
@@ -34,12 +39,15 @@ type Watcher struct {
 	Notify func(ctx context.Context, level notify.Level, title, body string)
 	Tick   time.Duration
 	Now    func() time.Time
-	// backup is replaced in tests.
+	// backup and renew are replaced in tests.
 	backup func(ctx context.Context, m *service.Manager, name string) error
+	renew  func(ctx context.Context, m *service.Manager, name string) error
 
 	mu      sync.Mutex
 	crashes map[string][]time.Time
 	ooms    map[string]time.Time
+	// renewed is when each port forward was last renewed, even if that failed.
+	renewed map[string]time.Time
 }
 
 func New(st *store.Store, m *service.Manager, runner *jobs.Runner) *Watcher {
@@ -76,6 +84,7 @@ func (w *Watcher) RunScheduler(ctx context.Context) {
 	defer t.Stop()
 	for {
 		w.tickBackups(ctx)
+		w.tickPublic(ctx)
 		select {
 		case <-ctx.Done():
 			return
@@ -115,6 +124,37 @@ func (w *Watcher) tickBackups(ctx context.Context) {
 			continue
 		}
 		w.startBackup(s.Name)
+	}
+}
+
+func (w *Watcher) tickPublic(ctx context.Context) {
+	servers, err := w.St.ListServers()
+	if err != nil {
+		return
+	}
+	run := w.renew
+	if run == nil {
+		run = func(ctx context.Context, m *service.Manager, name string) error { return m.RenewPublic(ctx, name) }
+	}
+	now := w.Now().UTC()
+	for _, s := range servers {
+		p := s.Public
+		if p == nil || p.Method == expose.MethodPlayit || now.Sub(p.RefreshedAt) < renewEvery || w.Jobs.Active(s.Name) != nil {
+			continue
+		}
+		if w.renewed == nil {
+			w.renewed = map[string]time.Time{}
+		}
+		if now.Sub(w.renewed[s.Name]) < renewEvery {
+			continue
+		}
+		w.renewed[s.Name] = now
+		if err := run(ctx, w.manager(), s.Name); err != nil {
+			var locked *store.LockedError
+			if !errors.As(err, &locked) {
+				log.Printf("port forward for %s: %v", s.Name, err)
+			}
+		}
 	}
 }
 

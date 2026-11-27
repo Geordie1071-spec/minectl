@@ -19,6 +19,9 @@ const kindLabels: Record<string, string> = {
   modpack: "Changing modpack",
   "mods.add": "Adding mod",
   "mods.remove": "Removing mod",
+  properties: "Applying settings",
+  public: "Making public",
+  private: "Making private",
 };
 
 export function jobLabel(kind: string) {

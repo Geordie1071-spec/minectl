@@ -49,6 +49,18 @@ type Server struct {
 	Properties       *Properties `json:"properties,omitempty"`
 	LastCrashAt      *time.Time  `json:"last_crash_at,omitempty"`
 	LastCrashReason  string      `json:"last_crash_reason,omitempty"`
+	Public           *Public     `json:"public,omitempty"`
+}
+
+// Public is how a server is reachable from the internet.
+type Public struct {
+	// Method is "upnp" or "nat-pmp" (the router forwards the port) or
+	// "playit" (a playit.gg tunnel).
+	Method  string `json:"method"`
+	Address string `json:"address"`
+	// TunnelID is the playit tunnel.
+	TunnelID    string    `json:"tunnel_id,omitempty"`
+	RefreshedAt time.Time `json:"refreshed_at"`
 }
 
 type Mod struct {
@@ -80,6 +92,8 @@ type Config struct {
 	AutoBackupIntervalHours int    `json:"auto_backup_interval_hours"`
 	// DiscordWebhook receives crash and backup failure alerts from the panel.
 	DiscordWebhook string `json:"discord_webhook,omitempty"`
+	// PlayitSecret is the playit.gg agent key used for tunnels.
+	PlayitSecret string `json:"playit_secret,omitempty"`
 }
 
 const (

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "./api";
+import { api, type PublicAccess } from "./api";
 
-export type JoinScope = "public" | "lan" | "local";
+export type JoinScope = "internet" | "public" | "lan" | "local";
 
 export interface JoinAddress {
   address: string;
@@ -14,15 +14,17 @@ function format(host: string, port: number) {
   return port === 25565 ? host : `${host}:${port}`;
 }
 
-// useJoinAddress works out what players type into Minecraft: the address set
-// with --public-address, else the panel's own hostname (the servers run on the
-// same machine), else this machine's address on the local network.
-export function useJoinAddress(port: number): JoinAddress {
+// useJoinAddress works out what players type into Minecraft: the server's
+// forwarded or tunnelled address if it has one, else the address set with
+// --public-address, else the panel's own hostname (the servers run on the same
+// machine), else this machine's address on the local network.
+export function useJoinAddress(port: number, pub?: PublicAccess): JoinAddress {
   const { data } = useQuery({
     queryKey: ["address"],
     queryFn: () => api.get<{ public: string; lan: string }>("/address"),
     staleTime: Infinity,
   });
+  if (pub) return { address: pub.address.replace(/:25565$/, ""), scope: "internet" };
   if (data?.public) return { address: format(data.public, port), scope: "public" };
   const host = window.location.hostname;
   if (!isLocal(host)) return { address: format(host, port), scope: "public" };
@@ -31,7 +33,8 @@ export function useJoinAddress(port: number): JoinAddress {
 }
 
 export const scopeHint: Record<JoinScope, string> = {
+  internet: "",
   public: "",
-  lan: "Works for players on your network. For friends elsewhere, forward this port on your router and share your public IP.",
+  lan: "Works for players on your network. To let friends elsewhere join, make the server public below.",
   local: "Only works on this computer.",
 };

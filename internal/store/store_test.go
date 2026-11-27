@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -165,4 +166,23 @@ func TestExpiredLockIsTakenOver(t *testing.T) {
 		t.Fatalf("expired lock should be taken over: %v", err)
 	}
 	release()
+}
+
+func TestRefusesNewerSchema(t *testing.T) {
+	t.Setenv("MINECTL_CONFIG_DIR", t.TempDir())
+	st := New()
+	if _, err := st.ListServers(); err != nil {
+		t.Fatal(err)
+	}
+	db, _ := st.open()
+	if _, err := db.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, len(migrations)+1)); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+
+	_, err := New().ListServers()
+	var newer *NewerSchemaError
+	if !errors.As(err, &newer) || !strings.Contains(err.Error(), "minectl update") {
+		t.Fatalf("err = %v", err)
+	}
 }
