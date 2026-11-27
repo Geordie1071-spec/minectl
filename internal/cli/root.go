@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -68,6 +69,10 @@ func getDockerClient(ctx context.Context) (*docker.Client, error) {
 	}
 	if err := cli.CheckDockerRunning(ctx); err != nil {
 		_ = cli.Close()
+		var perm *docker.PermissionError
+		if errors.As(err, &perm) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("Docker is not running or not accessible: %w", err)
 	}
 	return cli, nil

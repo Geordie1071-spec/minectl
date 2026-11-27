@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2 (unreleased)
+
+- When your user can't use Docker yet (just added to the docker group), minectl says so once and explains the fix, instead of repeating "permission denied" every few seconds.
+- `sudo minectl serve install-service` labels the panel for SELinux itself (Oracle Linux, RHEL, Fedora), so the service starts without a manual `chcon`, and with `--domain` it opens ports 80 and 443 in `firewalld` or `ufw`.
+- The install script installs Docker and opens the firewall on Oracle Linux, Rocky, Alma, RHEL, CentOS Stream and Fedora.
+
 ## 2.0.1 (2026-11-27)
 
 - The ⋯ menus on the Players and People pages are no longer cut off by their card.

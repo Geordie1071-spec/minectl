@@ -338,6 +338,49 @@ const unitPath = "/etc/systemd/system/minectl.service"
 // group, which is already as good as root.
 const panelBinaryDir = "/opt/minectl/bin"
 
+// labelForSELinux lets systemd run the panel's binary where SELinux is
+// enforcing (Oracle Linux, RHEL, Fedora); without it the service fails with
+// status=203/EXEC. The folder is labelled too, so binaries "minectl update"
+// writes there inherit the label.
+func labelForSELinux(dir string) {
+	b, err := os.ReadFile("/sys/fs/selinux/enforce")
+	if err != nil || strings.TrimSpace(string(b)) != "1" {
+		return
+	}
+	if out, err := exec.Command("chcon", "-R", "-t", "bin_t", dir).CombinedOutput(); err != nil {
+		fmt.Printf("Warning: couldn't label %s for SELinux (%v): %s\nIf the service won't start, run: sudo chcon -R -t bin_t %s\n", dir, err, strings.TrimSpace(string(out)), dir)
+		return
+	}
+	// Survives a full relabel, where semanage is installed.
+	_ = exec.Command("semanage", "fcontext", "-a", "-t", "bin_t", dir+"(/.*)?").Run()
+	fmt.Println("Labelled", dir, "for SELinux.")
+}
+
+// openPanelPorts opens 80 and 443 in the machine's firewall, when one is
+// running, for a panel with a domain. The cloud provider's firewall is
+// separate and still needs them.
+func openPanelPorts() {
+	if exec.Command("firewall-cmd", "--state").Run() == nil {
+		for _, args := range [][]string{
+			{"--permanent", "--add-service=http", "--add-service=https"},
+			{"--reload"},
+		} {
+			if out, err := exec.Command("firewall-cmd", args...).CombinedOutput(); err != nil {
+				fmt.Printf("Warning: couldn't open ports 80 and 443 in firewalld (%v): %s\n", err, strings.TrimSpace(string(out)))
+				return
+			}
+		}
+		fmt.Println("Opened ports 80 and 443 in firewalld.")
+		return
+	}
+	if out, err := exec.Command("ufw", "status").Output(); err == nil && strings.Contains(string(out), "Status: active") {
+		for _, port := range []string{"80/tcp", "443/tcp"} {
+			_ = exec.Command("ufw", "allow", port).Run()
+		}
+		fmt.Println("Opened ports 80 and 443 in ufw.")
+	}
+}
+
 // panelBinary moves the running binary into panelBinaryDir, owned by u, and
 // leaves a symlink where it was so "minectl" on the PATH keeps working.
 func panelBinary(bin string, u *user.User) (string, error) {
@@ -409,6 +452,12 @@ func runInstallService(cmd *cobra.Command, args []string) error {
 	}
 	if bin, err = panelBinary(bin, u); err != nil {
 		return err
+	}
+	if filepath.Dir(bin) == panelBinaryDir {
+		labelForSELinux(panelBinaryDir)
+	}
+	if serveDomain != "" {
+		openPanelPorts()
 	}
 	execArgs := []string{bin, "serve"}
 	extra := ""

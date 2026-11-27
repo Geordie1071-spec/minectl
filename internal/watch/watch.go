@@ -241,15 +241,29 @@ func (w *Watcher) RunCrashWatch(ctx context.Context) {
 	if w.M.D == nil {
 		return
 	}
+	// Log each new problem once and wait longer between tries while it
+	// lasts, instead of repeating the same error every few seconds.
+	delay, last := 5*time.Second, ""
 	for ctx.Err() == nil {
+		started := time.Now()
 		err := w.M.D.WatchContainers(ctx, func(e docker.ContainerEvent) { w.handle(ctx, e) })
 		if ctx.Err() != nil {
 			return
 		}
-		log.Printf("crash watch: %v; reconnecting", err)
+		if time.Since(started) > time.Minute {
+			// It was connected for a while, so this is a new problem.
+			last, delay = "", 5*time.Second
+		}
+		msg := docker.Explain(err).Error()
+		if msg != last {
+			log.Printf("crash watch: %s; retrying in the background", msg)
+			last, delay = msg, 5*time.Second
+		} else if delay < time.Minute {
+			delay *= 2
+		}
 		select {
 		case <-ctx.Done():
-		case <-time.After(5 * time.Second):
+		case <-time.After(delay):
 		}
 	}
 }
