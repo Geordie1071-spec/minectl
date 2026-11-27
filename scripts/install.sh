@@ -18,6 +18,22 @@ esac
 [ "$OS" = "linux" ] || { echo "This script is for Linux."; exit 1; }
 
 TARGET_USER="${SUDO_USER:-$(whoami)}"
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+TARGET_HOME="${TARGET_HOME:-$HOME}"
+
+# Panel options, as flags (curl ... | bash -s -- --panel --domain x) or env vars.
+PANEL="${MINECTL_PANEL:-}"
+DOMAIN="${MINECTL_DOMAIN:-}"
+EMAIL="${MINECTL_EMAIL:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --panel) PANEL=1 ;;
+    --domain) DOMAIN="$2"; PANEL=1; shift ;;
+    --email) EMAIL="$2"; shift ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+  shift
+done
 
 if [ -z "${MINECTL_SKIP_DOCKER}" ] && ! command -v docker &>/dev/null; then
   if command -v apt-get &>/dev/null; then
@@ -46,7 +62,7 @@ if [ -z "$VERSION" ] && command -v curl &>/dev/null; then
   REPO_PATH="${REPO_PATH%.git}"
   [ -n "$REPO_PATH" ] && VERSION=$(curl -sSLf "https://api.github.com/repos/${REPO_PATH}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/') || true
 fi
-[ -z "$VERSION" ] && VERSION="v0.1.4"
+[ -z "$VERSION" ] && VERSION="v1.0"
 
 INSTALLED=
 DOWNLOAD_URL="${REPO}/releases/download/${VERSION}/minectl_${VERSION#v}_${OS}_${ARCH}.tar.gz"
@@ -127,6 +143,22 @@ if [ ! -d /opt/minectl/servers ]; then
   echo "Creating /opt/minectl/servers (you can use --data-dir to use a different path)."
   sudo mkdir -p /opt/minectl/servers /opt/minectl/backups
   sudo chown -R "${DATA_USER}:${DATA_USER}" /opt/minectl 2>/dev/null || true
+fi
+
+if [ -n "$PANEL" ]; then
+  echo ""
+  echo "Setting up the web panel..."
+  PANEL_ARGS=""
+  [ -n "$DOMAIN" ] && PANEL_ARGS="$PANEL_ARGS --domain $DOMAIN"
+  [ -n "$EMAIL" ] && PANEL_ARGS="$PANEL_ARGS --email $EMAIL"
+  # shellcheck disable=SC2086
+  sudo "${INSTALL_DIR}/${BINARY}" serve install-service --user "$TARGET_USER" $PANEL_ARGS
+  if [ -z "$DOMAIN" ]; then
+    echo ""
+    echo "The panel listens on 127.0.0.1:8080. From your computer, run:"
+    echo "  ssh -L 8080:localhost:8080 ${TARGET_USER}@<this-server>   then open http://localhost:8080/setup"
+    echo "Or re-run with --domain panel.example.com for automatic HTTPS."
+  fi
 fi
 
 echo ""

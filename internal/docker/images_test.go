@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/docker/docker/api/types"
 )
 
 func TestDecodePullProgress(t *testing.T) {
@@ -52,5 +54,27 @@ func TestDockerTimestamp(t *testing.T) {
 	ts := time.Date(2026, 11, 26, 18, 41, 44, 205000000, time.UTC)
 	if got := DockerTimestamp(ts); got != "1795718504.205000000" {
 		t.Errorf("DockerTimestamp = %q", got)
+	}
+}
+
+func TestComputeStats(t *testing.T) {
+	var v types.StatsJSON
+	v.CPUStats.CPUUsage.TotalUsage = 3_000_000
+	v.PreCPUStats.CPUUsage.TotalUsage = 1_000_000
+	v.CPUStats.SystemUsage = 20_000_000
+	v.PreCPUStats.SystemUsage = 10_000_000
+	v.CPUStats.OnlineCPUs = 4
+	v.MemoryStats.Usage = 3000
+	v.MemoryStats.Limit = 4000
+	v.MemoryStats.Stats = map[string]uint64{"inactive_file": 1000}
+	s := computeStats(&v)
+	if s.CPUPercent != 80 || s.MemoryUsage != 2000 || s.MemoryPercent != 50 {
+		t.Fatalf("got %+v", s)
+	}
+	v.CPUStats.OnlineCPUs = 0
+	v.CPUStats.CPUUsage.PercpuUsage = []uint64{1, 2}
+	v.MemoryStats.Stats = map[string]uint64{"total_inactive_file": 500}
+	if s := computeStats(&v); s.CPUPercent != 40 || s.MemoryUsage != 2500 {
+		t.Fatalf("cgroup v1 got %+v", s)
 	}
 }

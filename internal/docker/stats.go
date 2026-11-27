@@ -27,28 +27,7 @@ func (c *Client) GetStats(ctx context.Context, containerID string) (*ContainerSt
 	if err := json.NewDecoder(rdr.Body).Decode(&v); err != nil {
 		return nil, err
 	}
-
-	cpuDelta := float64(v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage)
-	sysDelta := float64(v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage)
-	cpuPercent := 0.0
-	if sysDelta > 0 {
-		cpuPercent = (cpuDelta / sysDelta) * float64(len(v.CPUStats.CPUUsage.PercpuUsage)) * 100.0
-	}
-
-	memUsage := v.MemoryStats.Usage
-	memLimit := v.MemoryStats.Limit
-	memPercent := 0.0
-	if memLimit > 0 {
-		memPercent = float64(memUsage) / float64(memLimit) * 100.0
-	}
-
-	return &ContainerStats{
-		CPUPercent:    cpuPercent,
-		MemoryUsage:   memUsage,
-		MemoryLimit:   memLimit,
-		MemoryPercent: memPercent,
-		PIDs:          v.PidsStats.Current,
-	}, nil
+	return computeStats(&v), nil
 }
 
 func (c *Client) StreamStats(ctx context.Context, containerID string, fn func(*ContainerStats)) error {
@@ -72,24 +51,42 @@ func (c *Client) StreamStats(ctx context.Context, containerID string, fn func(*C
 			}
 			return err
 		}
-		cpuDelta := float64(v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage)
-		sysDelta := float64(v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage)
-		cpuPercent := 0.0
-		if sysDelta > 0 {
-			cpuPercent = (cpuDelta / sysDelta) * float64(len(v.CPUStats.CPUUsage.PercpuUsage)) * 100.0
-		}
-		memUsage := v.MemoryStats.Usage
-		memLimit := v.MemoryStats.Limit
-		memPercent := 0.0
-		if memLimit > 0 {
-			memPercent = float64(memUsage) / float64(memLimit) * 100.0
-		}
-		fn(&ContainerStats{
-			CPUPercent:    cpuPercent,
-			MemoryUsage:   memUsage,
-			MemoryLimit:   memLimit,
-			MemoryPercent: memPercent,
-			PIDs:          v.PidsStats.Current,
-		})
+		fn(computeStats(&v))
+	}
+}
+
+// computeStats matches what `docker stats` shows: CPU relative to one core,
+// and memory without reclaimable page cache.
+func computeStats(v *types.StatsJSON) *ContainerStats {
+	cpuDelta := float64(v.CPUStats.CPUUsage.TotalUsage) - float64(v.PreCPUStats.CPUUsage.TotalUsage)
+	sysDelta := float64(v.CPUStats.SystemUsage) - float64(v.PreCPUStats.SystemUsage)
+	cpus := float64(v.CPUStats.OnlineCPUs)
+	if cpus == 0 {
+		cpus = float64(len(v.CPUStats.CPUUsage.PercpuUsage))
+	}
+	cpuPercent := 0.0
+	if sysDelta > 0 && cpuDelta > 0 {
+		cpuPercent = cpuDelta / sysDelta * cpus * 100.0
+	}
+
+	memUsage := v.MemoryStats.Usage
+	cache := v.MemoryStats.Stats["inactive_file"] // cgroup v2
+	if cache == 0 {
+		cache = v.MemoryStats.Stats["total_inactive_file"] // cgroup v1
+	}
+	if cache < memUsage {
+		memUsage -= cache
+	}
+	memLimit := v.MemoryStats.Limit
+	memPercent := 0.0
+	if memLimit > 0 {
+		memPercent = float64(memUsage) / float64(memLimit) * 100.0
+	}
+	return &ContainerStats{
+		CPUPercent:    cpuPercent,
+		MemoryUsage:   memUsage,
+		MemoryLimit:   memLimit,
+		MemoryPercent: memPercent,
+		PIDs:          v.PidsStats.Current,
 	}
 }
