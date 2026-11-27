@@ -42,12 +42,16 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if !quiet {
-		fmt.Print(renderListTable(servers, listAll))
+		publicAddr := ""
+		if cfg, err := st.GetConfig(); err == nil {
+			publicAddr = cfg.PublicAddress
+		}
+		fmt.Print(renderListTable(servers, listAll, publicAddr))
 	}
 	return nil
 }
 
-func renderListTable(servers []domain.Server, all bool) string {
+func renderListTable(servers []domain.Server, all bool, publicAddr string) string {
 	var shown []domain.Server
 	running := 0
 	for _, s := range servers {
@@ -62,14 +66,20 @@ func renderListTable(servers []domain.Server, all bool) string {
 	if len(shown) == 0 {
 		return "No servers yet. Create one: " + accent("minectl create -n survival -t paper") + "\n"
 	}
-	lan := expose.LANIP()
+	// What players type: the server's forward or tunnel, else the panel's
+	// public address (a cloud machine only sees its private IP), else this
+	// machine's address on the local network.
+	host := publicAddr
+	if host == "" {
+		host = expose.LANIP()
+	}
 	rows := make([][]string, 0, len(shown))
 	for _, s := range shown {
 		join := fmt.Sprintf("localhost:%d", s.Port)
 		if s.Public != nil {
 			join = s.Public.Address
-		} else if lan != "" {
-			join = fmt.Sprintf("%s:%d", lan, s.Port)
+		} else if host != "" {
+			join = fmt.Sprintf("%s:%d", host, s.Port)
 		}
 		rows = append(rows, []string{bold(s.Name), statusDot(s.Status), s.MCType + " " + s.MCVersion, formatMB(s.MemoryMB), join})
 	}

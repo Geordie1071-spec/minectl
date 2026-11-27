@@ -51,12 +51,12 @@ func (m *Manager) MakePublic(ctx context.Context, name, via string, ev Events) (
 	if via != ViaAuto && via != ViaRouter && via != ViaPlayit {
 		return nil, fmt.Errorf("invalid method %q; use auto, router, or playit", via)
 	}
-	if ip, ok := hosted(); ok && via != ViaPlayit {
+	if addr := m.hostedAddress(); addr != "" && via != ViaPlayit {
 		s, err := m.get(name)
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("this machine is already on the internet (%s), so there's nothing to forward: players join at %s:%d. If they can't connect, open TCP port %d in the firewall (for example: sudo ufw allow %d/tcp)", ip, ip, s.Port, s.Port, s.Port)
+		return nil, fmt.Errorf("this machine is already on the internet (%s), so there's nothing to forward: players join at %s:%d. If they can't connect, open TCP port %d in the firewall: in your cloud provider's firewall, and on the machine if it runs one (for example: sudo ufw allow %d/tcp)", addr, addr, s.Port, s.Port, s.Port)
 	}
 	unlock, err := m.lock(ctx, name, "make public")
 	if err != nil {
@@ -232,6 +232,19 @@ func (m *Manager) unexpose(ctx context.Context, s *domain.Server, ev Events) {
 }
 
 // otherTunnels reports whether a server other than name uses a playit tunnel.
+// hostedAddress is this machine's public address when it's on the internet
+// directly: the panel's saved --public-address or --domain (clouds where the
+// machine only sees a private IP), or its own public IP. Empty at home.
+func (m *Manager) hostedAddress() string {
+	if cfg, err := m.St.GetConfig(); err == nil && cfg.PublicAddress != "" {
+		return cfg.PublicAddress
+	}
+	if ip, ok := hosted(); ok {
+		return ip.String()
+	}
+	return ""
+}
+
 func (m *Manager) otherTunnels(name string) bool {
 	servers, err := m.St.ListServers()
 	if err != nil {

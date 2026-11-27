@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1 (2026-11-27)
+
+- The ⋯ menus on the Players and People pages are no longer cut off by their card.
+- On cloud machines that only see a private IP (Azure, Oracle and others), `minectl list` shows the panel's `--domain` or `--public-address` as the join address, and `minectl public` knows the machine is already on the internet.
+
 ## 2.0.0 (2026-11-27)
 
 The big one: minectl now has a web panel. Every part of the CLI was also

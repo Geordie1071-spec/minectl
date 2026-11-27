@@ -186,3 +186,20 @@ func TestPlayitClaim(t *testing.T) {
 		t.Fatal("unlink kept the secret")
 	}
 }
+
+func TestMakePublicWithSavedPublicAddress(t *testing.T) {
+	// An Azure or Oracle machine only sees a private IP; the panel's saved
+	// --domain tells it it's on the internet anyway.
+	m := publicManager(t)
+	cfg, _ := m.St.GetConfig()
+	cfg.PublicAddress = "mc.example.com"
+	_ = m.St.SaveConfig(cfg)
+	stubRouter(t, func(int, string) (*expose.Mapping, error) {
+		t.Fatal("a cloud machine has no router to ask")
+		return nil, nil
+	})
+	_, err := m.MakePublic(context.Background(), "survival", ViaAuto, NopEvents{})
+	if err == nil || !strings.Contains(err.Error(), "mc.example.com:25570") {
+		t.Fatalf("err = %v", err)
+	}
+}

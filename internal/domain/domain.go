@@ -94,6 +94,10 @@ type Config struct {
 	DiscordWebhook string `json:"discord_webhook,omitempty"`
 	// PlayitSecret is the playit.gg agent key used for tunnels.
 	PlayitSecret string `json:"playit_secret,omitempty"`
+	// PublicAddress is the panel's --public-address or --domain, saved each
+	// time it starts so the CLI knows the machine's address too. On clouds
+	// like Azure and Oracle the machine itself only sees a private IP.
+	PublicAddress string `json:"public_address,omitempty"`
 }
 
 const (

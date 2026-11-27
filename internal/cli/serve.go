@@ -104,6 +104,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	st := getStore()
 	defer st.Close()
+	if err := savePublicAddress(st, strings.TrimSpace(servePublicAddr), serveDomain); err != nil {
+		log.Printf("Warning: couldn't save the public address for the CLI: %v", err)
+	}
 
 	jobCtx, cancelJobs := context.WithCancel(context.Background())
 	defer cancelJobs()
@@ -189,6 +192,24 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return reexec()
 	}
 	return err
+}
+
+// savePublicAddress records what players use to reach this machine, for the
+// CLI's join addresses. Starting without either flag clears it.
+func savePublicAddress(st *store.Store, publicAddr, domain string) error {
+	addr := publicAddr
+	if addr == "" {
+		addr = domain
+	}
+	cfg, err := st.GetConfig()
+	if err != nil {
+		return err
+	}
+	if cfg.PublicAddress == addr {
+		return nil
+	}
+	cfg.PublicAddress = addr
+	return st.SaveConfig(cfg)
 }
 
 // reexec replaces this process with the binary on disk, keeping the PID so

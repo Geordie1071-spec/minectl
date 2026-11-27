@@ -139,7 +139,7 @@ minectl public survival --off      # back to your network only
 
 minectl first asks your router to forward the port (UPnP or NAT-PMP) and shows your public address. If the router has that turned off, or your internet provider shares one address between many customers (CGNAT, common on mobile and some fibre connections), it uses a free [playit.gg](https://playit.gg) tunnel instead. Link playit once, with `minectl playit link` or under Panel settings, and approve minectl in your browser. minectl then runs the playit agent in Docker and creates a tunnel for each server. Use `--via router` or `--via playit` to pick one.
 
-On a VPS there's nothing to forward: the machine is already on the internet, and the panel says so. Open the server's port in the firewall instead.
+On a VPS there's nothing to forward: the machine is already on the internet, and the panel says so. Open the server's port in the firewall instead. Some clouds (Azure, Oracle, AWS, Google Cloud) only show the machine a private IP, so start the panel with `--domain` or `--public-address` there. minectl then knows its public address, and the CLI uses it too.
 
 The panel renews router forwards every 20 minutes, which also restores them after the router restarts. With only the CLI, run `minectl public` again after a router restart. Many routers can't loop back to their own public address, so on your own network join with the local address.
 
