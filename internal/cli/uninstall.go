@@ -43,7 +43,8 @@ func init() {
 
 func runUninstall(cmd *cobra.Command, args []string) error {
 	if runtime.GOOS == "windows" {
-		return errors.New("on Windows, delete the servers with 'minectl delete --all', then delete minectl.exe and the minectl folder in your home directory")
+		return errors.New(`on Windows, delete the servers with 'minectl delete --all', then delete minectl.exe
+(%LOCALAPPDATA%\Programs\minectl if you used install.ps1), and the minectl folder in your home directory to delete worlds too`)
 	}
 	bash, err := exec.LookPath("bash")
 	if err != nil {

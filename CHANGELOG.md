@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1.0 (2026-11-27)
 
 - On AWS, Google Cloud, Azure and Oracle Cloud, minectl finds the machine's public IP itself, so the panel and `minectl list` show the right join address without `--public-address`.
 - minectl recognises AWS, Google Cloud, Azure, Oracle Cloud, Hetzner, DigitalOcean and Vultr, and recommends the easiest setup for each: where to open ports in that provider's console, and on AWS and Google Cloud, keeping the IP from changing. The advice shows in the panel, `minectl public`, `install-service` and at the end of the install script. minectl never needs access to your cloud account.
@@ -11,6 +11,8 @@
 - `minectl uninstall` removes minectl the way `minectl update` updates it: the panel service, port forwards and tunnels, server containers and the binary, with `--purge` to delete worlds and settings too.
 - The install script's fallback build with Go works: it passed `go install` a URL instead of the module path.
 - `sudo minectl serve install-service --domain` warns when the domain doesn't point at the machine yet, before the HTTPS certificate fails.
+- Windows has a one-line installer: `irm https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.ps1 | iex` installs Docker Desktop (with winget) and minectl, adds it to your PATH and opens the firewall when run as administrator.
+- `minectl update` on Windows names the right download (a .zip) and points to the installer.
 
 ## 2.0.2 (2026-11-27)
 

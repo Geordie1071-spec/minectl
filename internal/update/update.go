@@ -57,9 +57,14 @@ func (r *Release) asset(name string) string {
 	return ""
 }
 
-// ArchiveName is the release archive GoReleaser builds for this platform.
+// ArchiveName is the release archive GoReleaser builds for this platform:
+// a zip on Windows, a tarball elsewhere.
 func (r *Release) ArchiveName() string {
-	return fmt.Sprintf("minectl_%s_%s_%s.tar.gz", r.Version, runtime.GOOS, runtime.GOARCH)
+	ext := "tar.gz"
+	if runtime.GOOS == "windows" {
+		ext = "zip"
+	}
+	return fmt.Sprintf("minectl_%s_%s_%s.%s", r.Version, runtime.GOOS, runtime.GOARCH, ext)
 }
 
 // Latest returns the newest release, or the one tagged tag if it's set.
@@ -212,7 +217,7 @@ func checksum(sums io.Reader, name string) (string, error) {
 // failure leaves the old binary in place.
 func Apply(ctx context.Context, r *Release, exe string) error {
 	if runtime.GOOS == "windows" {
-		return fmt.Errorf("Windows can't replace a running program; download %s from %s", r.ArchiveName(), r.URL)
+		return fmt.Errorf("Windows can't replace a running program; close minectl and run the installer again:\n  irm https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.ps1 | iex\nor download %s from %s", r.ArchiveName(), r.URL)
 	}
 	name := r.ArchiveName()
 	archiveURL, sumsURL := r.asset(name), r.asset("checksums.txt")

@@ -24,16 +24,53 @@ minectl exec survival "say Hello"
 
 ## Requirements
 
-- **Docker** — Engine 20.x+ running (e.g. `docker ps` works).
-- **Go 1.26+** — only if building from source.
+- **Docker** — Engine 20.x+ running (e.g. `docker ps` works). The install scripts install it for you if it's missing: Docker Engine on Linux, Docker Desktop on Windows.
+- **Go 1.26+** — only if building from source. The install scripts download a ready-made binary.
+- Nothing else: Java and Minecraft come inside the server container.
 
 ## Install
 
 - **From source:** `go install github.com/Geordie1071-spec/minectl/cmd/minectl@latest`
-- **Script:** `curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash`
+- **Linux (script):** `curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash`
 - **Releases:** download the binary for your OS/arch from [Releases](https://github.com/Geordie1071-spec/minectl/releases).
+- **Windows (PowerShell):** `irm https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.ps1 | iex` (see [Windows](#windows)).
 
 Run `minectl` on its own for an overview of your servers and common commands. Output is plain text when piped or with `NO_COLOR` or `--no-color`.
+
+### Windows
+
+1. **Open PowerShell.** Right-click it and choose **Run as administrator** so the installer can open the firewall for you too. A normal PowerShell works; it then prints the firewall command to run as administrator afterwards.
+
+2. **Run the installer:**
+
+   ```powershell
+   irm https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.ps1 | iex
+   ```
+
+   It installs **Docker Desktop** with winget if it's missing (Windows asks for permission), downloads minectl and checks it against the release checksums, installs it to `%LOCALAPPDATA%\Programs\minectl`, adds that to your PATH, and opens TCP 25565-25575 in Windows Firewall.
+
+3. **If Docker Desktop was just installed:** restart Windows if it asks, open **Docker Desktop**, say yes if it offers to install or update WSL, and wait until it says it's running. Docker Desktop must be running whenever your servers are.
+
+4. **Open a new terminal and create a server:**
+
+   ```powershell
+   minectl create -n myserver -t paper -m 4G
+   minectl list
+   ```
+
+   Friends on your network join with the address `minectl list` shows.
+
+5. **Let friends join from the internet:**
+
+   ```powershell
+   minectl public myserver
+   ```
+
+   This asks your router to forward the port, or opens a playit.gg tunnel when the router won't.
+
+**To update**, run the installer from step 2 again (close minectl first). **To uninstall**, run `minectl delete --all` (add `--purge` to delete worlds too), then delete `%LOCALAPPDATA%\Programs\minectl`.
+
+On Windows, worlds live in `%USERPROFILE%\minectl`, and the panel (`minectl serve`) runs while its terminal is open; installing it as a service is Linux only. For the full Linux experience, run the Linux install script inside WSL 2 (`wsl --install`, then Ubuntu); on Windows 11, set `networkingMode=mirrored` in `.wslconfig` so other machines can reach the servers.
 
 ### Updating
 
