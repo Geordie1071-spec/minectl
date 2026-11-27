@@ -1,6 +1,9 @@
 package server
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -59,5 +62,45 @@ func TestSetPropertyRejects(t *testing.T) {
 		if err := SetProperty(&domain.Properties{}, kv[0], kv[1]); err == nil {
 			t.Errorf("%s=%q should be rejected", kv[0], kv[1])
 		}
+	}
+}
+
+func TestUnsetResetsServerProperties(t *testing.T) {
+	old := &domain.Properties{}
+	for _, kv := range [][2]string{{"pvp", "false"}, {"whitelist", "true"}, {"motd", "hi"}} {
+		if err := SetProperty(old, kv[0], kv[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	next := *old
+	if err := SetProperty(&next, "pvp", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetProperty(&next, "whitelist", ""); err != nil {
+		t.Fatal(err)
+	}
+	keys := UnsetKeys(old, &next)
+	if !reflect.DeepEqual(keys, []string{"pvp", "whitelist"}) {
+		t.Fatalf("unset keys = %v", keys)
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "server.properties")
+	in := "#Minecraft server properties\nmotd=hi\npvp=false\nwhite-list=true\nlevel-seed=123\n"
+	if err := os.WriteFile(path, []byte(in), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ResetProperties(dir, keys); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	want := "#Minecraft server properties\nmotd=hi\npvp=true\nwhite-list=false\nlevel-seed=123\n"
+	if string(got) != want {
+		t.Fatalf("server.properties =\n%s\nwant\n%s", got, want)
+	}
+
+	// A server that hasn't started yet has no file; nothing to reset.
+	if err := ResetProperties(t.TempDir(), keys); err != nil {
+		t.Fatal(err)
 	}
 }

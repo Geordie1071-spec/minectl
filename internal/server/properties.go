@@ -1,7 +1,11 @@
 package server
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,21 +18,25 @@ type Property struct {
 	Key  string
 	Env  string
 	Help string
+	// File is the server.properties key and Default is Minecraft's own value,
+	// written back when the setting is unset.
+	File    string
+	Default string
 }
 
 // PropertyList is every setting minectl manages, in display order. Each maps
 // to the itzg/minecraft-server variable that writes it into server.properties.
 var PropertyList = []Property{
-	{"motd", "MOTD", "message shown in the server list"},
-	{"max-players", "MAX_PLAYERS", "player limit (1-1000)"},
-	{"difficulty", "DIFFICULTY", "peaceful, easy, normal or hard"},
-	{"gamemode", "MODE", "survival, creative, adventure or spectator"},
-	{"view-distance", "VIEW_DISTANCE", "chunks sent to players (3-32)"},
-	{"pvp", "PVP", "players can hurt each other (true/false)"},
-	{"hardcore", "HARDCORE", "one life, hardest difficulty (true/false)"},
-	{"online-mode", "ONLINE_MODE", "require real Minecraft accounts (true/false)"},
-	{"whitelist", "ENABLE_WHITELIST", "only whitelisted players can join (true/false)"},
-	{"allow-flight", "ALLOW_FLIGHT", "don't kick players for flying (true/false)"},
+	{"motd", "MOTD", "message shown in the server list", "motd", "A Minecraft Server"},
+	{"max-players", "MAX_PLAYERS", "player limit (1-1000)", "max-players", "20"},
+	{"difficulty", "DIFFICULTY", "peaceful, easy, normal or hard", "difficulty", "easy"},
+	{"gamemode", "MODE", "survival, creative, adventure or spectator", "gamemode", "survival"},
+	{"view-distance", "VIEW_DISTANCE", "chunks sent to players (3-32)", "view-distance", "10"},
+	{"pvp", "PVP", "players can hurt each other (true/false)", "pvp", "true"},
+	{"hardcore", "HARDCORE", "one life, hardest difficulty (true/false)", "hardcore", "false"},
+	{"online-mode", "ONLINE_MODE", "require real Minecraft accounts (true/false)", "online-mode", "true"},
+	{"whitelist", "ENABLE_WHITELIST", "only whitelisted players can join (true/false)", "white-list", "false"},
+	{"allow-flight", "ALLOW_FLIGHT", "don't kick players for flying (true/false)", "allow-flight", "false"},
 }
 
 var (
@@ -172,4 +180,55 @@ func PropertyValues(p *domain.Properties) map[string]string {
 		}
 	}
 	return out
+}
+
+// UnsetKeys returns the settings set in old but not in new.
+func UnsetKeys(old, new *domain.Properties) []string {
+	before, after := PropertyValues(old), PropertyValues(new)
+	var keys []string
+	for _, pr := range PropertyList {
+		if _, was := before[pr.Key]; was {
+			if _, is := after[pr.Key]; !is {
+				keys = append(keys, pr.Key)
+			}
+		}
+	}
+	return keys
+}
+
+// ResetProperties writes Minecraft's defaults for the given settings into the
+// server's server.properties. itzg only writes settings whose variable is set,
+// so without this an unset setting would keep its last value.
+func ResetProperties(dataDir string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	path := filepath.Join(dataDir, "server.properties")
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defaults := map[string]string{}
+	for _, k := range keys {
+		for _, pr := range PropertyList {
+			if pr.Key == k {
+				defaults[pr.File] = pr.Default
+			}
+		}
+	}
+	lines := strings.Split(string(data), "\n")
+	for i, line := range lines {
+		k, _, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		if v, reset := defaults[strings.TrimSpace(k)]; reset {
+			lines[i] = strings.TrimSpace(k) + "=" + v
+		}
+	}
+	// Write in place so the file keeps the owner the container needs.
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }

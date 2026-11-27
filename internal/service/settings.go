@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Geordie1071-spec/minectl/internal/domain"
@@ -60,6 +61,7 @@ func (m *Manager) SetProperties(ctx context.Context, name string, p domain.Prope
 	if err != nil {
 		return err
 	}
+	unset := server.UnsetKeys(s.Properties, &p)
 	if p == (domain.Properties{}) {
 		s.Properties = nil
 	} else {
@@ -67,6 +69,9 @@ func (m *Manager) SetProperties(ctx context.Context, name string, p domain.Prope
 	}
 	if err := m.St.SaveServer(s); err != nil {
 		return err
+	}
+	if err := server.ResetProperties(s.DataDir, unset); err != nil {
+		ev.Warn(fmt.Sprintf("couldn't reset %s in server.properties: %v", strings.Join(unset, ", "), err))
 	}
 	ev.Info("Game settings saved")
 	return m.apply(ctx, name, ev)

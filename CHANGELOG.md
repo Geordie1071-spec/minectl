@@ -23,6 +23,13 @@ reworked so servers start reliably and say why when they don't.
 - `minectl serve reset-password` gets a locked-out user back in.
 - `install.sh --domain panel.example.com` sets up minectl and the panel in one command.
 
+### Running servers unattended
+- Scheduled backups every hour, every 6 hours, or every day, set from the Backups tab or `minectl backup schedule`. They run while the panel is running.
+- Crash alerts: the panel notices servers that exit on their own and records why (out of memory, an error exit), and can message a Discord webhook.
+  A server that crashes 4 times in 10 minutes is stopped instead of restarted again and again.
+- Game settings: MOTD, max players, difficulty, gamemode, view distance, PvP, hardcore, online mode, whitelist and flight, from the Settings tab or `minectl props`.
+- Panel settings for the Discord webhook and how many backups to keep.
+
 ### Modpacks and versions
 - Modrinth modpacks with `--modpack`: the loader, Minecraft version and Java version are detected from the pack.
 - CurseForge modpacks with `--curseforge <url or slug>`.
