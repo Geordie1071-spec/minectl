@@ -158,6 +158,7 @@ func (a *API) routes() []route {
 		{"POST /api/v1/servers/{name}/backups/{id}/restore", serverAdmin, a.restoreBackup},
 		{"POST /api/v1/servers/{name}/console", serverOperator, a.console},
 		{"GET /api/v1/servers/{name}/players", serverViewer, a.players},
+		{"GET /api/v1/servers/{name}/players/known", serverViewer, a.knownPlayers},
 		{"POST /api/v1/servers/{name}/players/{player}/{action}", serverOperator, a.playerAction},
 		{"GET /api/v1/servers/{name}/logs", serverViewer, a.streamLogs},
 		{"GET /api/v1/servers/{name}/stats", serverViewer, a.streamStats},

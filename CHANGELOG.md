@@ -11,7 +11,8 @@ reworked so servers start reliably and say why when they don't.
   - A new-server wizard: pick a server type, search Modrinth, or paste a CurseForge link. A players slider updates the memory and CPU recommendation live.
   - Live install and start progress.
   - Server pages with live usage graphs, a console with command history, player management, backups, mods and modpacks, resize, upgrade, and delete.
-  - Pages for users and roles, account settings and API tokens, and an activity log.
+  - A players page with everyone who has joined, online or not: ops, whitelist and bans at a glance, unban in one click, and kick or ban with a reason.
+  - Pages for users and roles, account settings and API tokens, and a paged activity log.
   - Light and dark themes, and it works on phones.
 - A JSON API under `/api/v1`. Job progress, logs and stats stream live over server-sent events.
 - First-run setup token, so nobody can claim a freshly exposed panel before you do.

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Copy } from "lucide-react";
+import { Check, ChevronDown, Copy, MoreHorizontal } from "lucide-react";
 import { typeLabels } from "./format";
 
 export function cx(...parts: (string | false | null | undefined)[]) {
@@ -295,7 +295,7 @@ export function Card({
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className={flush ? "mt-4" : "p-5"}>{children}</div>
+      <div className={flush ? (title || actions ? "mt-4" : undefined) : "p-5"}>{children}</div>
       {footer && <footer className="flex items-center justify-between gap-3 border-t border-line bg-hover/40 px-5 py-3 text-sm text-muted">{footer}</footer>}
     </section>
   );
@@ -482,3 +482,116 @@ export function TypeTile({ type, className = "h-8 w-8 text-[13px]" }: { type: st
     </span>
   );
 }
+
+// ConfirmDialog asks before something that can't easily be undone, in place
+// of the browser's confirm(). children can add context or inputs, such as a
+// reason; onConfirm may be async and keeps the dialog busy until it settles.
+export function ConfirmDialog({
+  open,
+  title,
+  children,
+  confirmLabel,
+  danger,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  children?: ReactNode;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<unknown> | void;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch {
+      // The caller shows the error; the dialog stays open to try again.
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          confirm();
+        }}
+      >
+        {children && <div className="space-y-3 text-sm text-muted">{children}</div>}
+        <div className="mt-6 flex justify-end gap-2">
+          <Button type="button" onClick={onClose} autoFocus disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" variant={danger ? "danger" : "primary"} busy={busy}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ActionsMenu holds the less common actions for a person behind one button.
+export function ActionsMenu({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="rounded-md p-1.5 text-muted transition-colors hover:bg-hover hover:text-fg"
+      >
+        <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          onClick={() => setOpen(false)}
+          className="absolute top-full right-0 z-30 mt-1 w-48 origin-top-right animate-scale-in rounded-lg border border-line bg-surface-2 p-1 shadow-pop"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MenuItem({ icon: I, children, onClick, danger }: { icon: typeof Copy; children: ReactNode; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      role="menuitem"
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-hover",
+        danger ? "text-danger" : "text-muted hover:text-fg",
+      )}
+    >
+      <I className="h-4 w-4" strokeWidth={1.75} />
+      {children}
+    </button>
+  );
+}
+

@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -560,5 +563,48 @@ func TestPanelBackupDownload(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3") ||
 		!strings.Contains(w.Header().Get("Content-Disposition"), "minectl-panel-") || w.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("backup: %d %q %v", w.Code, w.Body.String()[:min(20, w.Body.Len())], w.Header())
+	}
+}
+
+func TestKnownPlayersAndAuditPages(t *testing.T) {
+	h := newHarness(t)
+	sess := h.setupAdmin()
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "banned-players.json"), []byte(`[{"uuid":"u1","name":"Griefer","reason":"tnt"}]`), 0644)
+	_ = h.st.SaveServer(&domain.Server{Name: "alpha", DataDir: dir})
+
+	// Works with the server stopped: it only reads the server's files.
+	w := h.do("GET", "/api/v1/servers/alpha/players/known", "", withCookie(sess))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"name":"Griefer"`) || !strings.Contains(w.Body.String(), `"banned":true`) {
+		t.Fatalf("known players: %d %s", w.Code, w.Body)
+	}
+	for _, body := range []string{`{"reason":"two\nlines"}`, `{"reason":"` + strings.Repeat("x", 101) + `"}`} {
+		if w := h.do("POST", "/api/v1/servers/alpha/players/Griefer/ban", body, withCookie(sess)); w.Code != http.StatusBadRequest {
+			t.Errorf("bad reason %q: %d", body, w.Code)
+		}
+	}
+	if w := h.do("POST", "/api/v1/servers/alpha/players/Griefer/op", `{"reason":"why"}`, withCookie(sess)); w.Code != http.StatusBadRequest {
+		t.Errorf("op with a reason: %d", w.Code)
+	}
+
+	for i := 0; i < 30; i++ {
+		_ = h.st.AddAudit(domain.AuditEntry{Username: "system", Action: fmt.Sprintf("test.%d", i)})
+	}
+	var page struct {
+		Entries []domain.AuditEntry `json:"entries"`
+		Total   int                 `json:"total"`
+		Page    int                 `json:"page"`
+		Pages   int                 `json:"pages"`
+	}
+	w = h.do("GET", "/api/v1/audit?page=2&limit=10", "", withCookie(sess))
+	_ = json.Unmarshal(w.Body.Bytes(), &page)
+	if w.Code != http.StatusOK || len(page.Entries) != 10 || page.Page != 2 || page.Total < 30 || page.Pages != (page.Total+9)/10 {
+		t.Fatalf("audit page: %d %+v", w.Code, page)
+	}
+	// Page 1 is the newest.
+	w = h.do("GET", "/api/v1/audit?limit=1", "", withCookie(sess))
+	_ = json.Unmarshal(w.Body.Bytes(), &page)
+	if len(page.Entries) != 1 || page.Entries[0].Action != "test.29" {
+		t.Fatalf("newest first: %+v", page.Entries)
 	}
 }

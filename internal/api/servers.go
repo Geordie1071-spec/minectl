@@ -530,8 +530,34 @@ var (
 	}
 )
 
+// knownPlayers lists everyone who has joined or is on the op, whitelist or
+// ban lists, from the server's files, so it works while the server is off.
+func (a *API) knownPlayers(w http.ResponseWriter, r *http.Request, c *reqCtx) {
+	list, err := server.KnownPlayers(c.server.DataDir)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "couldn't read the player files: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
 func (a *API) playerAction(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 	player, action := r.PathValue("player"), r.PathValue("action")
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	req.Reason = strings.TrimSpace(req.Reason)
+	if req.Reason != "" && (action != "kick" && action != "ban") {
+		writeErr(w, http.StatusBadRequest, "only kick and ban take a reason")
+		return
+	}
+	if len(req.Reason) > 100 || strings.ContainsAny(req.Reason, "\r\n\x00") {
+		writeErr(w, http.StatusBadRequest, "the reason must be one line of up to 100 characters")
+		return
+	}
 	format, ok := playerActions[action]
 	if !ok {
 		writeErr(w, http.StatusBadRequest, "action must be one of: whitelist, unwhitelist, op, deop, kick, ban, pardon")
@@ -544,11 +570,19 @@ func (a *API) playerAction(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 	if !a.running(w, c) {
 		return
 	}
-	out, err := a.rcon(r, c, fmt.Sprintf(format, player))
+	cmd := fmt.Sprintf(format, player)
+	if req.Reason != "" {
+		cmd += " " + req.Reason
+	}
+	out, err := a.rcon(r, c, cmd)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "console: "+err.Error())
 		return
 	}
-	a.audit(r, c, "player."+action, c.server.Name, player)
+	detail := player
+	if req.Reason != "" {
+		detail += ": " + req.Reason
+	}
+	a.audit(r, c, "player."+action, c.server.Name, detail)
 	writeJSON(w, http.StatusOK, map[string]string{"output": out})
 }

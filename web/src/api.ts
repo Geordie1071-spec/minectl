@@ -159,6 +159,25 @@ export interface AuditEntry {
   ip?: string;
 }
 
+export interface AuditPage {
+  entries: AuditEntry[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
+// KnownPlayer is someone who has joined a server or is on its op, whitelist
+// or ban lists, read from the server's files.
+export interface KnownPlayer {
+  name: string;
+  uuid?: string;
+  op: boolean;
+  whitelisted: boolean;
+  banned: boolean;
+  ban_reason?: string;
+  last_seen?: string;
+}
+
 export class ApiError extends Error {
   status: number;
   body: Record<string, unknown>;

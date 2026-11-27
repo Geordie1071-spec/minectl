@@ -165,7 +165,7 @@ curl -H "Authorization: Bearer $TOKEN" -X POST https://panel.example.com/api/v1/
   -d '{"name":"survival","type":"paper","memory":"auto","players":10}'
 ```
 
-Long operations (create, start, stop, restart, backup, restore, upgrade, resize, modpack and mod changes) return `202` with a job. Follow it with `GET /api/v1/jobs/{id}/events`, a server-sent event stream. Live logs and stats are streamed the same way at `/api/v1/servers/{name}/logs` and `/stats`. Every change is recorded in the audit log (`GET /api/v1/audit`, admins only).
+Long operations (create, start, stop, restart, backup, restore, upgrade, resize, modpack and mod changes) return `202` with a job. Follow it with `GET /api/v1/jobs/{id}/events`, a server-sent event stream. Live logs and stats are streamed the same way at `/api/v1/servers/{name}/logs` and `/stats`. Every change is recorded in the audit log (`GET /api/v1/audit?page=1&limit=25`, admins only; page 1 is the newest).
 
 ### Developing the panel
 

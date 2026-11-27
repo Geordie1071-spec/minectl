@@ -143,16 +143,25 @@ func (a *API) host(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 	writeJSON(w, http.StatusOK, map[string]int{"memory_mb": h.MemoryMB, "cpus": h.CPUs, "running_memory_mb": a.m.RunningMemoryMB()})
 }
 
+// listAudit returns one page of the activity log: ?page=1 (the newest) and
+// ?limit=25 (at most 100).
 func (a *API) listAudit(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	if limit <= 0 || limit > 100 {
+		limit = 25
 	}
-	before, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
-	list, err := a.st.ListAudit(limit, before)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	list, total, err := a.st.AuditPage(limit, (page-1)*limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, list)
+	pages := (total + limit - 1) / limit
+	if pages == 0 {
+		pages = 1
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": list, "total": total, "page": page, "pages": pages})
 }

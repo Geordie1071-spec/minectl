@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, type PanelSettings as Settings } from "../api";
-import { Alert, Button, Card, Field, Input, Spinner, buttonClass } from "../ui";
+import { Alert, Button, Card, ConfirmDialog, Field, Input, Spinner, buttonClass } from "../ui";
 
 // PanelSettings holds admin-only settings for the whole panel.
 export function PanelSettings() {
@@ -122,6 +122,7 @@ function Playit({ linked }: { linked: boolean }) {
   const [claim, setClaim] = useState<{ code: string; url: string }>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
 
   useEffect(() => {
     if (!claim) return;
@@ -164,7 +165,6 @@ function Playit({ linked }: { linked: boolean }) {
   };
 
   const unlink = async () => {
-    if (!confirm("Close every playit.gg tunnel and unlink the account? Servers that use a tunnel become private.")) return;
     setBusy(true);
     setError("");
     try {
@@ -201,7 +201,7 @@ function Playit({ linked }: { linked: boolean }) {
         {error && <Alert>{error}</Alert>}
         <div className="flex flex-wrap gap-2">
           {linked ? (
-            <Button type="button" variant="ghost" busy={busy} onClick={unlink}>
+            <Button type="button" variant="ghost" busy={busy} onClick={() => setUnlinkOpen(true)}>
               Unlink
             </Button>
           ) : (
@@ -216,6 +216,9 @@ function Playit({ linked }: { linked: boolean }) {
           )}
         </div>
       </div>
+      <ConfirmDialog open={unlinkOpen} onClose={() => setUnlinkOpen(false)} title="Unlink playit.gg?" confirmLabel="Unlink" danger onConfirm={unlink}>
+        <p>Every playit.gg tunnel is closed, and servers that use one become private until you make them public again.</p>
+      </ConfirmDialog>
     </Card>
   );
 }

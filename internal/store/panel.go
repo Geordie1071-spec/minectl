@@ -466,3 +466,33 @@ func (s *Store) ListAudit(limit int, before int64) ([]domain.AuditEntry, error) 
 	}
 	return out, rows.Err()
 }
+
+// AuditPage returns one page of the audit log, newest first, and how many
+// entries there are in all.
+func (s *Store) AuditPage(limit, offset int) ([]domain.AuditEntry, int, error) {
+	db, err := s.open()
+	if err != nil {
+		return nil, 0, err
+	}
+	var total int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_log`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := db.Query(`SELECT id, time, COALESCE(user_id, 0), username, action, server, detail, ip FROM audit_log
+		ORDER BY id DESC LIMIT ? OFFSET ?`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []domain.AuditEntry{}
+	for rows.Next() {
+		var e domain.AuditEntry
+		var t string
+		if err := rows.Scan(&e.ID, &t, &e.UserID, &e.Username, &e.Action, &e.Server, &e.Detail, &e.IP); err != nil {
+			return nil, 0, err
+		}
+		e.Time = parseTS(t)
+		out = append(out, e)
+	}
+	return out, total, rows.Err()
+}

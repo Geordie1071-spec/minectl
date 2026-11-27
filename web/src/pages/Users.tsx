@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate } from "react-router-dom";
-import { Eye, KeyRound, MoreHorizontal, Server as ServerIcon, Shield, ShieldCheck, ShieldOff, Trash2, UserPlus, Users as UsersIcon, Wrench, X } from "lucide-react";
+import { Eye, KeyRound, Server as ServerIcon, Shield, ShieldCheck, ShieldOff, Trash2, UserPlus, Users as UsersIcon, Wrench, X } from "lucide-react";
 import { api, errorMessage, srv, type Server, type UserWithGrants } from "../api";
 import { useMe } from "../hooks";
 import { Avatar, PageTitle } from "../layout";
 import { dateTime, timeAgo } from "../format";
-import { Alert, Badge, Button, Card, Field, Input, Modal, Select, Spinner, TypeTile, cx } from "../ui";
+import { ActionsMenu, Alert, Badge, Button, Card, ConfirmDialog, Field, Input, MenuItem, Modal, Select, Spinner, TypeTile, cx } from "../ui";
 
 const roleOptions = [
   { value: "viewer", label: "Viewer" },
@@ -29,70 +29,13 @@ function RoleBadge({ role }: { role: "admin" | "operator" | "viewer" }) {
   );
 }
 
-// ActionsMenu holds the less common actions for a person behind one button.
-function ActionsMenu({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="rounded-md p-1.5 text-muted transition-colors hover:bg-hover hover:text-fg"
-      >
-        <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className="absolute top-full right-0 z-30 mt-1 w-48 origin-top-right animate-scale-in rounded-lg border border-line bg-surface-2 p-1 shadow-pop"
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MenuItem({ icon: I, children, onClick, danger }: { icon: typeof Shield; children: ReactNode; onClick: () => void; danger?: boolean }) {
-  return (
-    <button
-      role="menuitem"
-      type="button"
-      onClick={onClick}
-      className={cx(
-        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-hover",
-        danger ? "text-danger" : "text-muted hover:text-fg",
-      )}
-    >
-      <I className="h-4 w-4" strokeWidth={1.75} />
-      {children}
-    </button>
-  );
-}
-
 function PersonCard({ u, servers, me }: { u: UserWithGrants; servers: Server[]; me: number }) {
   const qc = useQueryClient();
   const [server, setServer] = useState("");
   const [role, setRole] = useState("viewer");
   const [error, setError] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [newPass, setNewPass] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: ["users"] });
   const isMe = u.id === me;
@@ -136,11 +79,7 @@ function PersonCard({ u, servers, me }: { u: UserWithGrants; servers: Server[]; 
           {!isMe && (
             <>
               <div className="my-1 h-px bg-line" />
-              <MenuItem
-                icon={Trash2}
-                danger
-                onClick={() => confirm(`Delete ${u.username}? They'll be logged out everywhere.`) && run(() => api.del(`/users/${u.id}`))}
-              >
+              <MenuItem icon={Trash2} danger onClick={() => setDeleteOpen(true)}>
                 Delete
               </MenuItem>
             </>
@@ -218,6 +157,16 @@ function PersonCard({ u, servers, me }: { u: UserWithGrants; servers: Server[]; 
         )}
       </div>
 
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title={`Delete ${u.username}?`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => run(() => api.del(`/users/${u.id}`))}
+      >
+        <p>They'll be logged out everywhere and lose access to every server. Their API tokens stop working.</p>
+      </ConfirmDialog>
       <Modal open={resetOpen} onClose={() => setResetOpen(false)} title={`New password for ${u.username}`}>
         <form
           className="space-y-3"
