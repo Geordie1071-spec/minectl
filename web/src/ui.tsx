@@ -538,43 +538,81 @@ export function ConfirmDialog({
 }
 
 // ActionsMenu holds the less common actions for a person behind one button.
+// ActionsMenu holds the less common actions behind one button. The menu is
+// portalled to <body> with fixed positioning, so cards with overflow-hidden
+// can't clip it; it opens upward when there's no room below.
 export function ActionsMenu({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ right: number; top?: number; bottom?: number }>();
+  const btn = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const open = !!pos;
+
+  const toggle = () => {
+    if (open) return setPos(undefined);
+    const r = btn.current?.getBoundingClientRect();
+    if (!r) return;
+    const right = window.innerWidth - r.right;
+    const below = window.innerHeight - r.bottom;
+    setPos(below < 220 && r.top > below ? { right, bottom: window.innerHeight - r.top + 4 } : { right, top: r.bottom + 4 });
+  };
+
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    const close = () => setPos(undefined);
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!btn.current?.contains(t) && !menu.current?.contains(t)) close();
     };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        close();
+        btn.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    // The menu is fixed to the screen, so it closes rather than drift away
+    // from its button when anything scrolls.
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
     return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
     };
   }, [open]);
+
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={btn}
         type="button"
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={toggle}
         className="rounded-md p-1.5 text-muted transition-colors hover:bg-hover hover:text-fg"
       >
         <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
       </button>
-      {open && (
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className="absolute top-full right-0 z-30 mt-1 w-48 origin-top-right animate-scale-in rounded-lg border border-line bg-surface-2 p-1 shadow-pop"
-        >
-          {children}
-        </div>
-      )}
-    </div>
+      {pos &&
+        createPortal(
+          <div
+            ref={menu}
+            role="menu"
+            onClick={() => setPos(undefined)}
+            style={{ right: pos.right, top: pos.top, bottom: pos.bottom }}
+            className={cx(
+              "fixed z-50 w-52 animate-scale-in rounded-lg border border-line bg-surface-2 p-1 shadow-pop",
+              pos.bottom !== undefined ? "origin-bottom-right" : "origin-top-right",
+            )}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

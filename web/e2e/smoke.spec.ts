@@ -47,6 +47,22 @@ test("setup, servers, users, tokens, and login", async ({ page }) => {
   await page.getByRole("button", { name: "Add person" }).click();
   await expect(page.getByText("friend", { exact: true })).toBeVisible();
 
+  // Row menus render above the page, so a card can't clip them.
+  await page.getByRole("button", { name: "Actions for friend" }).click();
+  const reset = page.getByRole("menuitem", { name: "Reset password" });
+  await expect(reset).toBeVisible();
+  const box = (await reset.boundingBox())!;
+  const onTop = await page.evaluate(
+    ({ x, y }) => document.elementFromPoint(x, y)?.closest('[role="menuitem"]')?.textContent?.trim(),
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  );
+  expect(onTop).toBe("Reset password");
+  // Outside every card, so overflow-hidden on a short card can't cut it off.
+  expect(await reset.evaluate((el) => el.closest('[role="menu"]')?.parentElement === document.body)).toBe(true);
+  await reset.click();
+  await expect(page.getByRole("dialog")).toContainText("New password for friend");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+
   await page.getByRole("link", { name: "Settings" }).click();
   await page.getByLabel("Token name").fill("ci");
   await page.getByRole("button", { name: "Create" }).click();
