@@ -33,7 +33,7 @@ minectl exec survival "say Hello"
 - **Script:** `curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/install.sh | bash`
 - **Releases:** download the binary for your OS/arch from [Releases](https://github.com/Geordie1071-spec/minectl/releases).
 
-Note: the install script also sets up bash tab-completion for `minectl` automatically.
+Run `minectl` on its own for an overview of your servers and common commands. Output is plain text when piped or with `NO_COLOR` or `--no-color`.
 
 ### Updating
 
@@ -48,11 +48,11 @@ A database written by a newer minectl isn't opened by an older one, so going bac
 
 ### Uninstall
 
-To remove the `minectl` binary:
-`curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash`
+```bash
+curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash
+```
 
-To also delete config/data (destructive):
-`MINECTL_PURGE=1 curl -sSL https://raw.githubusercontent.com/Geordie1071-spec/minectl/main/scripts/uninstall.sh | bash`
+This removes the panel service, closes router port forwards and playit.gg tunnels, stops and removes the Minecraft server containers, and removes the binary. Worlds, backups and settings are kept. To delete those too, add `-s -- --purge` after `bash`. Add `--yes` to skip the confirmation.
 
 ### Install on your VPS (one command)
 
@@ -139,7 +139,21 @@ minectl public survival --off      # back to your network only
 
 minectl first asks your router to forward the port (UPnP or NAT-PMP) and shows your public address. If the router has that turned off, or your internet provider shares one address between many customers (CGNAT, common on mobile and some fibre connections), it uses a free [playit.gg](https://playit.gg) tunnel instead. Link playit once, with `minectl playit link` or under Panel settings, and approve minectl in your browser. minectl then runs the playit agent in Docker and creates a tunnel for each server. Use `--via router` or `--via playit` to pick one.
 
+On a VPS there's nothing to forward: the machine is already on the internet, and the panel says so. Open the server's port in the firewall instead.
+
 The panel renews router forwards every 20 minutes, which also restores them after the router restarts. With only the CLI, run `minectl public` again after a router restart. Many routers can't loop back to their own public address, so on your own network join with the local address.
+
+### Panel backup
+
+The panel's own database, with users, roles, settings and API tokens, is copied every day to `~/.minectl/panel-backups/` (the last 7 are kept). Admins can also download a copy under Settings. Server worlds are backed up separately, per server. To restore, stop the panel and copy the backup over `~/.minectl/minectl.db`:
+
+```bash
+sudo systemctl stop minectl
+cp ~/.minectl/panel-backups/minectl-20261127-120000.db ~/.minectl/minectl.db
+sudo systemctl start minectl
+```
+
+The file contains password hashes and saved secrets, so keep it private.
 
 ### API
 

@@ -7,10 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Geordie1071-spec/minectl/internal/config"
 	"github.com/Geordie1071-spec/minectl/internal/docker"
 	"github.com/Geordie1071-spec/minectl/internal/domain"
 	"github.com/Geordie1071-spec/minectl/internal/expose"
@@ -30,7 +34,14 @@ const (
 	// Router port forwards are re-added this often, which brings them back
 	// after the router restarts.
 	renewEvery = 20 * time.Minute
+	// The panel's own database (users, settings, tokens) is copied daily.
+	panelBackupEvery = 24 * time.Hour
+	panelBackupsKept = 7
+	panelBackupName  = "minectl-20060102-150405.db"
 )
+
+// PanelBackupDir holds the daily copies of the panel's database.
+func PanelBackupDir() string { return filepath.Join(config.ConfigDir(), "panel-backups") }
 
 type Watcher struct {
 	St     *store.Store
@@ -48,6 +59,8 @@ type Watcher struct {
 	ooms    map[string]time.Time
 	// renewed is when each port forward was last renewed, even if that failed.
 	renewed map[string]time.Time
+	// panelBackupTried keeps a failing panel backup from retrying every minute.
+	panelBackupTried time.Time
 }
 
 func New(st *store.Store, m *service.Manager, runner *jobs.Runner) *Watcher {
@@ -85,6 +98,7 @@ func (w *Watcher) RunScheduler(ctx context.Context) {
 	for {
 		w.tickBackups(ctx)
 		w.tickPublic(ctx)
+		w.tickPanelBackup()
 		select {
 		case <-ctx.Done():
 			return
@@ -155,6 +169,45 @@ func (w *Watcher) tickPublic(ctx context.Context) {
 				log.Printf("port forward for %s: %v", s.Name, err)
 			}
 		}
+	}
+}
+
+// tickPanelBackup copies the panel's database once a day and keeps the
+// newest few copies. Times come from the file names.
+func (w *Watcher) tickPanelBackup() {
+	now := w.Now().UTC()
+	if now.Sub(w.panelBackupTried) < time.Hour {
+		return
+	}
+	dir := PanelBackupDir()
+	entries, _ := os.ReadDir(dir)
+	var names []string
+	for _, e := range entries {
+		if _, err := time.Parse(panelBackupName, e.Name()); err == nil {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names) // the format sorts by time
+	if n := len(names); n > 0 {
+		if last, _ := time.Parse(panelBackupName, names[n-1]); now.Sub(last) < panelBackupEvery {
+			return
+		}
+	}
+	w.panelBackupTried = now
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		log.Printf("panel backup: %v", err)
+		return
+	}
+	name := now.Format(panelBackupName)
+	if err := w.St.BackupTo(filepath.Join(dir, name)); err != nil {
+		log.Printf("panel backup: %v", err)
+		w.Notify(context.Background(), notify.Warning, "Panel backup failed", err.Error())
+		return
+	}
+	names = append(names, name)
+	for len(names) > panelBackupsKept {
+		_ = os.Remove(filepath.Join(dir, names[0]))
+		names = names[1:]
 	}
 }
 

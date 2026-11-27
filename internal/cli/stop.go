@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +34,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println("Stopped", args[0])
+		success("Stopped %s", args[0])
 	}
 	return nil
 }

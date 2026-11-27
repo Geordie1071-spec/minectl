@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +26,7 @@ func runRestart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println("Restarted", args[0])
+		success("Restarted %s", args[0])
 	}
 	return nil
 }

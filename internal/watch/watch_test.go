@@ -3,6 +3,7 @@ package watch
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -156,5 +157,43 @@ func TestRenewPortForwards(t *testing.T) {
 	w.tickPublic(context.Background())
 	if len(renewed) < 2 || renewed[1] != "stale" {
 		t.Fatalf("should retry after %s: %v", renewEvery, renewed)
+	}
+}
+
+func TestPanelBackups(t *testing.T) {
+	t.Setenv("MINECTL_CONFIG_DIR", t.TempDir())
+	st := store.New()
+	defer st.Close()
+	runner, err := jobs.New(context.Background(), st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
+	w := New(st, &service.Manager{St: st}, runner)
+	w.Now = func() time.Time { return now }
+	count := func() int {
+		entries, _ := os.ReadDir(PanelBackupDir())
+		return len(entries)
+	}
+
+	w.tickPanelBackup()
+	if count() != 1 {
+		t.Fatalf("first tick should back up, have %d", count())
+	}
+	now = now.Add(2 * time.Hour)
+	w.tickPanelBackup()
+	if count() != 1 {
+		t.Fatalf("a second backup the same day: %d", count())
+	}
+	for i := 0; i < 9; i++ {
+		now = now.Add(25 * time.Hour)
+		w.tickPanelBackup()
+	}
+	if count() != panelBackupsKept {
+		t.Fatalf("kept %d, want %d", count(), panelBackupsKept)
+	}
+	fi, _ := os.Stat(PanelBackupDir())
+	if fi.Mode().Perm() != 0700 {
+		t.Fatalf("backup dir mode %v", fi.Mode().Perm())
 	}
 }

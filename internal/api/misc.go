@@ -119,13 +119,18 @@ func (a *API) recommend(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 }
 
 // address tells the UI what players should type to join: the configured
-// public address if there is one, and this machine's LAN address.
+// public address if there is one, and this machine's LAN address. Hosted is
+// true on a machine that's on the internet directly, such as a VPS, where
+// servers need no port forwarding.
 func (a *API) address(w http.ResponseWriter, r *http.Request, c *reqCtx) {
-	writeJSON(w, http.StatusOK, map[string]string{"public": a.cfg.PublicAddress, "lan": expose.LANIP()})
+	_, direct := expose.Hosted()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"public": a.cfg.PublicAddress,
+		"lan":    expose.LANIP(),
+		"hosted": a.cfg.Hosted || direct,
+	})
 }
 
-// lanIP returns the address other machines on the local network reach this
-// one at. Dialing UDP sends no packets; it only picks the outgoing route.
 func (a *API) host(w http.ResponseWriter, r *http.Request, c *reqCtx) {
 	if !a.needDocker(w) {
 		return

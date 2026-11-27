@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +25,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !quiet {
-		fmt.Println("Started", s.Name)
-	}
+	success("Started %s", s.Name)
 	return nil
 }

@@ -186,3 +186,29 @@ func TestRefusesNewerSchema(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestBackupTo(t *testing.T) {
+	useTempConfig(t)
+	st := New()
+	defer st.Close()
+	if err := st.SaveServer(&domain.Server{Name: "survival"}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "panel.db")
+	if err := st.BackupTo(path); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0600 {
+		t.Fatalf("backup file: %v %v", fi, err)
+	}
+	// The copy is a working database with the same contents.
+	t.Setenv("MINECTL_CONFIG_DIR", t.TempDir())
+	if err := os.Rename(path, Path()); err != nil {
+		t.Fatal(err)
+	}
+	copyStore := New()
+	defer copyStore.Close()
+	if s, err := copyStore.GetServer("survival"); err != nil || s == nil {
+		t.Fatalf("server in backup: %v %v", s, err)
+	}
+}

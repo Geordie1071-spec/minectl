@@ -42,6 +42,9 @@ type Config struct {
 	// PublicAddress is what players type to join (a domain or IP). Empty
 	// lets the UI work it out from the page address or the LAN address.
 	PublicAddress string
+	// Hosted marks a panel known to be on the internet (it was given a
+	// domain or public address), even when this machine's own IP is private.
+	Hosted bool
 	// UI serves everything outside /api/. Nil serves a placeholder page.
 	UI http.Handler
 	// Restart replaces the panel process with the binary on disk, after an
@@ -178,6 +181,7 @@ func (a *API) routes() []route {
 		{"GET /api/v1/settings", admin, a.getSettings},
 		{"PUT /api/v1/settings", admin, a.putSettings},
 		{"POST /api/v1/settings/test-notification", admin, a.testNotification},
+		{"GET /api/v1/settings/backup", admin, a.downloadPanelBackup},
 		{"POST /api/v1/settings/playit/claim", admin, a.startPlayitClaim},
 		{"POST /api/v1/settings/playit/claim/{code}", admin, a.checkPlayitClaim},
 		{"DELETE /api/v1/settings/playit", admin, a.unlinkPlayit},

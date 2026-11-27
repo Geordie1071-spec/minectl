@@ -215,6 +215,13 @@ func UnmapPort(ctx context.Context, method string, port int) error {
 	return nil
 }
 
+// Hosted reports whether this machine has a public IP of its own, as a VPS
+// usually does: servers are then reachable without any port forwarding.
+func Hosted() (net.IP, bool) {
+	ip := net.ParseIP(LANIP())
+	return ip, ip != nil && !Unreachable(ip)
+}
+
 // LANIP is this machine's address on the local network, for players at home.
 func LANIP() string {
 	conn, err := net.Dial("udp", "192.0.2.1:9")

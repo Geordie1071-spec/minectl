@@ -3,6 +3,17 @@ import { api, type PublicAccess } from "./api";
 
 export type JoinScope = "internet" | "public" | "lan" | "local";
 
+export interface PanelAddress {
+  public: string;
+  lan: string;
+  // hosted is true on a machine that's on the internet directly (a VPS):
+  // its own address works for everyone and nothing needs forwarding.
+  hosted: boolean;
+}
+
+export const useAddress = () =>
+  useQuery({ queryKey: ["address"], queryFn: () => api.get<PanelAddress>("/address"), staleTime: Infinity });
+
 export interface JoinAddress {
   address: string;
   scope: JoinScope;
@@ -19,16 +30,12 @@ function format(host: string, port: number) {
 // --public-address, else the panel's own hostname (the servers run on the same
 // machine), else this machine's address on the local network.
 export function useJoinAddress(port: number, pub?: PublicAccess): JoinAddress {
-  const { data } = useQuery({
-    queryKey: ["address"],
-    queryFn: () => api.get<{ public: string; lan: string }>("/address"),
-    staleTime: Infinity,
-  });
+  const { data } = useAddress();
   if (pub) return { address: pub.address.replace(/:25565$/, ""), scope: "internet" };
   if (data?.public) return { address: format(data.public, port), scope: "public" };
   const host = window.location.hostname;
   if (!isLocal(host)) return { address: format(host, port), scope: "public" };
-  if (data?.lan) return { address: format(data.lan, port), scope: "lan" };
+  if (data?.lan) return { address: format(data.lan, port), scope: data.hosted ? "public" : "lan" };
   return { address: format("localhost", port), scope: "local" };
 }
 

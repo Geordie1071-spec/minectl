@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, type PanelSettings as Settings } from "../api";
-import { Alert, Button, Card, Field, Input, Spinner } from "../ui";
+import { Alert, Button, Card, Field, Input, Spinner, buttonClass } from "../ui";
 
 // PanelSettings holds admin-only settings for the whole panel.
 export function PanelSettings() {
@@ -92,6 +92,18 @@ export function PanelSettings() {
             Save
           </Button>
         </form>
+      </Card>
+
+      <Card
+        title="Panel backup"
+        description="Users, roles, settings and API tokens. A copy is saved every day and the last 7 are kept in ~/.minectl/panel-backups. Server worlds are backed up separately."
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <a href="/api/v1/settings/backup" download className={buttonClass("secondary")}>
+            Download a backup now
+          </a>
+          <p className="text-[13px] text-muted">It holds password hashes and saved secrets, so keep it somewhere private.</p>
+        </div>
       </Card>
 
       {msg && (

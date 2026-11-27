@@ -141,6 +141,19 @@ func openDB(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// BackupTo writes a consistent copy of the database to path, which must not
+// exist yet. It's safe while the panel and CLI are using the database.
+func (s *Store) BackupTo(path string) error {
+	db, err := s.open()
+	if err != nil {
+		return err
+	}
+	if _, err := db.Exec(`VACUUM INTO ?`, path); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0600)
+}
+
 // NewerSchemaError means the database was written by a newer minectl. Using it
 // anyway could hide or damage what the newer version stored.
 type NewerSchemaError struct{ Have, Know int }

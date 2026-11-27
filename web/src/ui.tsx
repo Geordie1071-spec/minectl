@@ -16,6 +16,15 @@ const variants: Record<Variant, string> = {
   ghost: "text-muted hover:bg-hover hover:text-fg",
 };
 
+// buttonClass styles a link to look like a Button.
+export function buttonClass(variant: Variant = "secondary", size: "sm" | "md" = "md") {
+  return cx(
+    "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+    size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-sm",
+    variants[variant],
+  );
+}
+
 export function Button({
   variant = "secondary",
   size = "md",
@@ -27,12 +36,7 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md"; busy?: boolean }) {
   return (
     <button
-      className={cx(
-        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
-        size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-sm",
-        variants[variant],
-        className,
-      )}
+      className={cx(buttonClass(variant, size), className)}
       disabled={disabled || busy}
       {...rest}
     >

@@ -25,12 +25,15 @@ var (
 var rootCmd = &cobra.Command{
 	Use:           "minectl",
 	Short:         "Manage Minecraft servers on any Linux VPS using Docker",
-	Long:          `minectl creates and manages Minecraft servers (Paper, Fabric, Forge, etc.) via Docker. No cloud, no accounts — just your server.`,
+	Long:          `minectl creates and manages Minecraft servers (Paper, Fabric, Forge, modpacks) with Docker, from the command line or a web panel. No cloud, no accounts: just your server.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	Args:          cobra.NoArgs,
+	RunE:          runHome,
 }
 
 func Execute() error {
+	setupHelp()
 	return rootCmd.Execute()
 }
 

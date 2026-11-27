@@ -123,6 +123,8 @@ func freePort(t *testing.T) int {
 }
 
 func TestServerLifecycle(t *testing.T) {
+	// Runs alongside TestPanel; each has its own config, data and port.
+	t.Parallel()
 	e := newEnv(t)
 	e.dataDir = filepath.Join(t.TempDir(), "data")
 	e.name = fmt.Sprintf("e2e-%d", rand.Intn(1_000_000))
@@ -203,21 +205,14 @@ func TestServerLifecycle(t *testing.T) {
 	})
 
 	t.Run("concurrent operations are locked", func(t *testing.T) {
-		restart := exec.Command(binary, "restart", e.name)
-		restart.Env = append(os.Environ(), "MINECTL_CONFIG_DIR="+e.configDir)
-		if err := restart.Start(); err != nil {
-			t.Fatal(err)
-		}
-		time.Sleep(3 * time.Second)
+		release := holdLock(t, e.configDir, e.name, "cli (pid 1): restart")
 		out, err := e.run("stop", e.name)
+		release()
 		if err == nil || !strings.Contains(out, "is busy: cli") || !strings.Contains(out, "restart") {
-			t.Errorf("stop during restart should report the lock, err=%v", err)
-		}
-		if err := restart.Wait(); err != nil {
-			t.Fatalf("restart failed: %v", err)
+			t.Errorf("stop while another command holds the lock should report it, err=%v", err)
 		}
 		if s := e.server(); s.Status != "running" {
-			t.Fatalf("after restart: %+v", s)
+			t.Fatalf("a refused stop must leave the server running: %+v", s)
 		}
 	})
 

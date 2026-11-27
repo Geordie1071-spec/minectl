@@ -22,7 +22,27 @@ func publicManager(t *testing.T) *Manager {
 	if err := st.SaveServer(&domain.Server{Name: "survival", Port: 25570}); err != nil {
 		t.Fatal(err)
 	}
+	// Behave like a home machine, whatever network the tests run on.
+	old := hosted
+	hosted = func() (net.IP, bool) { return net.ParseIP("192.168.1.20"), false }
+	t.Cleanup(func() { hosted = old })
 	return &Manager{St: st}
+}
+
+func TestMakePublicOnAVPS(t *testing.T) {
+	m := publicManager(t)
+	hosted = func() (net.IP, bool) { return net.ParseIP("203.0.113.50"), true }
+	stubRouter(t, func(int, string) (*expose.Mapping, error) {
+		t.Fatal("a VPS has no router to ask")
+		return nil, nil
+	})
+	_, err := m.MakePublic(context.Background(), "survival", ViaAuto, NopEvents{})
+	if err == nil || !strings.Contains(err.Error(), "203.0.113.50:25570") || !strings.Contains(err.Error(), "ufw allow 25570/tcp") {
+		t.Fatalf("err = %v", err)
+	}
+	if s, _ := m.St.GetServer("survival"); s.Public != nil {
+		t.Fatal("nothing should be recorded")
+	}
 }
 
 func stubRouter(t *testing.T, mapFn func(port int, prefer string) (*expose.Mapping, error)) *[]string {

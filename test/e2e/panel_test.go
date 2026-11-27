@@ -125,6 +125,7 @@ func (c *panelClient) console(server, cmd string) string {
 }
 
 func TestPanel(t *testing.T) {
+	t.Parallel()
 	e := newEnv(t)
 	port := freePort(t)
 	base := fmt.Sprintf("http://127.0.0.1:%d", port)
@@ -237,16 +238,18 @@ func TestPanel(t *testing.T) {
 	})
 
 	t.Run("cli respects panel locks", func(t *testing.T) {
-		var j jobJSON
-		owner.must("POST", "/api/v1/servers/"+name+"/restart", "", http.StatusAccepted, &j)
-		time.Sleep(2 * time.Second)
+		release := holdLock(t, e.configDir, name, "panel (owner): restart")
 		out, err := e.run("stop", name)
 		if err == nil || !strings.Contains(out, "is busy: panel (owner)") {
-			t.Errorf("CLI stop during a panel restart should report the lock, err=%v", err)
+			t.Errorf("CLI stop during a panel job should report the lock, err=%v", err)
 		}
-		if final, _ := owner.follow(j.ID); final.Status != "succeeded" {
-			t.Fatalf("restart: %+v", final)
+		// The panel refuses too, rather than queueing behind the lock.
+		var j jobJSON
+		owner.must("POST", "/api/v1/servers/"+name+"/stop", "", http.StatusAccepted, &j)
+		if final, _ := owner.follow(j.ID); final.Status != "failed" || !strings.Contains(final.Error, "busy") {
+			t.Errorf("panel stop while locked: %+v", final)
 		}
+		release()
 	})
 
 	t.Run("delete", func(t *testing.T) {

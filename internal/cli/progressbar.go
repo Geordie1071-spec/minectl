@@ -72,6 +72,9 @@ func (p *ProgressBar) Callback(percent int, msg string) {
 	}
 
 	bar := strings.Repeat("#", filled) + strings.Repeat("-", p.width-filled)
+	if colorFor(os.Stderr) {
+		bar = paintFor(os.Stderr, sgrAccent, strings.Repeat("█", filled)) + paintFor(os.Stderr, sgrDim, strings.Repeat("░", p.width-filled))
+	}
 	suffix := strings.TrimSpace(msg)
 	if p.prefix != "" && suffix != "" {
 		suffix = p.prefix + ": " + suffix

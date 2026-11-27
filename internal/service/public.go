@@ -30,6 +30,7 @@ var (
 	mapPort    = expose.MapPort
 	unmapPort  = expose.UnmapPort
 	newPlayit  = expose.NewPlayit
+	hosted     = expose.Hosted
 	tunnelWait = 90 * time.Second
 	tunnelPoll = 3 * time.Second
 )
@@ -49,6 +50,13 @@ func (m *Manager) MakePublic(ctx context.Context, name, via string, ev Events) (
 	}
 	if via != ViaAuto && via != ViaRouter && via != ViaPlayit {
 		return nil, fmt.Errorf("invalid method %q; use auto, router, or playit", via)
+	}
+	if ip, ok := hosted(); ok && via != ViaPlayit {
+		s, err := m.get(name)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("this machine is already on the internet (%s), so there's nothing to forward: players join at %s:%d. If they can't connect, open TCP port %d in the firewall (for example: sudo ufw allow %d/tcp)", ip, ip, s.Port, s.Port, s.Port)
 	}
 	unlock, err := m.lock(ctx, name, "make public")
 	if err != nil {

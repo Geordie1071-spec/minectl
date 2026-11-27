@@ -104,7 +104,7 @@ func deleteOne(ctx context.Context, m *service.Manager, name string) error {
 		return err
 	}
 	if !quiet {
-		fmt.Println("Deleted", name)
+		success("Deleted %s", name)
 		if deletePurge {
 			fmt.Fprintln(os.Stderr, "Warning: world data removed (irreversible).")
 		}

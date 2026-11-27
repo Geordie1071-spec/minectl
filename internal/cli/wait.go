@@ -37,12 +37,12 @@ func (sp *spinner) run() {
 	for i := 0; ; i++ {
 		sp.mu.Lock()
 		elapsed := time.Since(sp.started).Round(time.Second)
-		line := fmt.Sprintf("%s %s (%s)", frames[i%len(frames)], sp.label, elapsed)
+		line := fmt.Sprintf("%s %s %s", paintFor(os.Stderr, sgrAccent, frames[i%len(frames)]), sp.label, paintFor(os.Stderr, sgrDim, "("+elapsed.String()+")"))
 		if sp.detail != "" {
-			line += "  " + sp.detail
+			line += "  " + truncate(sp.detail, 70)
 		}
 		sp.mu.Unlock()
-		fmt.Fprintf(os.Stderr, "\r\033[K%s", truncate(line, 100))
+		fmt.Fprintf(os.Stderr, "\r\033[K%s", line)
 		select {
 		case <-sp.stop:
 			fmt.Fprint(os.Stderr, "\r\033[K")

@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -138,4 +141,33 @@ func (a *API) testNotification(w http.ResponseWriter, r *http.Request, c *reqCtx
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// downloadPanelBackup sends a fresh copy of the panel's database: users,
+// roles, settings and API tokens. Admins only; it holds password hashes and
+// the stored secrets, so it's handled like a key.
+func (a *API) downloadPanelBackup(w http.ResponseWriter, r *http.Request, c *reqCtx) {
+	dir, err := os.MkdirTemp("", "minectl-panel-backup-")
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, "panel.db")
+	if err := a.st.BackupTo(path); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer f.Close()
+	a.audit(r, c, "panel.backup_download", "", "")
+	name := "minectl-panel-" + time.Now().Format("20060102-1504") + ".db"
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.Copy(w, f)
 }

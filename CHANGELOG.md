@@ -29,12 +29,18 @@ reworked so servers start reliably and say why when they don't.
   A server that crashes 4 times in 10 minutes is stopped instead of restarted again and again.
 - Game settings: MOTD, max players, difficulty, gamemode, view distance, PvP, hardcore, online mode, whitelist and flight, from the Settings tab or `minectl props`.
 - Panel settings for the Discord webhook and how many backups to keep.
+- The panel's own database (users, settings, tokens) is backed up daily, and admins can download a copy.
 
 ### Hosting from home
 - `minectl public` and a "Make public" button let friends join a server running on your own computer.
   minectl asks the router to forward the port (UPnP or NAT-PMP). When it can't, or the connection is behind CGNAT, it falls back to a free playit.gg tunnel.
 - Link playit.gg once with `minectl playit link` or from Panel settings; minectl runs the agent and makes the tunnels.
 - The panel keeps router forwards alive and shows the public address as the join address.
+- On a VPS there's nothing to forward: the panel says the server is already reachable and which firewall port to open.
+
+### Command line
+- Run `minectl` on its own for the logo, your servers at a glance and the commands you'll need next.
+- Grouped, coloured help, a `list` with a status dot and the address to join, and clear ✓ / Warning / ✗ messages. Output stays plain when piped or with `NO_COLOR` or `--no-color`.
 
 ### Updates
 - `minectl update` installs the latest release after checking it against the release checksums, and restarts the panel.
@@ -65,6 +71,7 @@ reworked so servers start reliably and say why when they don't.
 - `modpack set` refuses to downgrade an existing world unless you pass `--force`.
 
 ### Under the hood
+- The uninstall script removes the panel service, port forwards, tunnels and server containers, not just the binary. Worlds are kept unless you pass `--purge`.
 - State moved to SQLite (`~/.minectl/minectl.db`). `servers.json` and
   `config.json` are imported automatically on first run.
   **After upgrading, 1.0 can no longer see your servers.**

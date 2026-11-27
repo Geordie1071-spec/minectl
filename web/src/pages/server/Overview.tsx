@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, Archive, Box, Cpu, Globe, MemoryStick, Puzzle, Users } from "lucide-react";
 import { api, srv, type Backup, type Job, type PanelSettings, type Server } from "../../api";
 import { usePlayers, useStats } from "../../hooks";
-import { scopeHint, useJoinAddress } from "../../join";
+import { scopeHint, useAddress, useJoinAddress } from "../../join";
 import { dateTime, formatBytes, formatMB, isModded, timeAgo, typeLabels } from "../../format";
 import { jobLabel } from "../../JobView";
 import { Alert, Button, Card, CopyButton, LiveDot, Meter, Sparkline, Spinner, StatusDot, cx } from "../../ui";
@@ -75,12 +75,8 @@ const methodText: Record<NonNullable<Server["public"]>["method"], string> = {
 // useHomeAddress is the local address to join from home when the server is
 // public through the router, whose public address often doesn't loop back.
 function useHomeAddress(s: Server) {
-  const { data } = useQuery({
-    queryKey: ["address"],
-    queryFn: () => api.get<{ public: string; lan: string }>("/address"),
-    staleTime: Infinity,
-  });
-  if (!s.public || s.public.method === "playit" || !data?.lan) return "";
+  const { data } = useAddress();
+  if (!s.public || s.public.method === "playit" || !data?.lan || data.hosted) return "";
   return s.port === 25565 ? data.lan : `${data.lan}:${s.port}`;
 }
 
@@ -95,6 +91,23 @@ function InternetAccess({ s, runJob }: TabProps) {
   });
   const busy = !!s.job;
   const home = useHomeAddress(s);
+  const where = useAddress().data;
+  const { address } = useJoinAddress(s.port, s.public);
+  if (where?.hosted && !s.public) {
+    return (
+      <Card title="Internet access" description="This machine is on the internet, so there's nothing to forward.">
+        <p className="flex flex-wrap items-center gap-1.5 text-sm">
+          <Globe className="h-4 w-4 text-ok" strokeWidth={1.75} />
+          Friends join at <span className="font-mono">{address}</span>
+          <CopyButton text={address} label="Copy address" />
+        </p>
+        <p className="mt-3 text-[13px] text-muted">
+          If they can't connect, open TCP port {s.port} in your firewall: in your provider's cloud firewall, and on the machine with{" "}
+          <code className="font-mono text-fg">sudo ufw allow {s.port}/tcp</code>.
+        </p>
+      </Card>
+    );
+  }
   if (s.public) {
     return (
       <Card title="Internet access" description={methodText[s.public.method]}>

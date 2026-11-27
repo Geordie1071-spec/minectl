@@ -125,6 +125,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		OnSetupDone:   func() { _ = os.Remove(setupTokenPath()) },
 		TrustProxy:    serveTrustProxy,
 		PublicAddress: strings.TrimSpace(servePublicAddr),
+		Hosted:        serveDomain != "" || strings.TrimSpace(servePublicAddr) != "",
 		UI:            web.Handler(),
 		Restart: func() {
 			select {

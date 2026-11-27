@@ -51,7 +51,7 @@ func (e *cliEvents) Info(msg string) {
 func (e *cliEvents) Warn(msg string) {
 	e.finish()
 	if !quiet {
-		fmt.Fprintln(os.Stderr, "Warning:", msg)
+		fmt.Fprintln(os.Stderr, warnLabel(), msg)
 	}
 }
 

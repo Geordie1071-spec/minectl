@@ -520,6 +520,9 @@ func TestPublicAndPlayitSettings(t *testing.T) {
 	h := newHarness(t)
 	sess := h.setupAdmin()
 	_ = h.st.SaveServer(&domain.Server{Name: "alpha", Public: &domain.Public{Method: "playit", Address: "abc.joinmc.link:41234", TunnelID: "t-1"}})
+	if w := h.do("GET", "/api/v1/address", "", withCookie(sess)); !strings.Contains(w.Body.String(), `"hosted":`) {
+		t.Fatalf("address: %s", w.Body)
+	}
 	w := h.do("GET", "/api/v1/servers/alpha", "", withCookie(sess))
 	if !strings.Contains(w.Body.String(), `"public":{"method":"playit","address":"abc.joinmc.link:41234"}`) {
 		t.Fatalf("server view: %s", w.Body)
@@ -547,5 +550,15 @@ func TestPublicAndPlayitSettings(t *testing.T) {
 	}
 	if w := h.do("POST", "/api/v1/settings/playit/claim/zzz", "", withCookie(sess)); w.Code != http.StatusBadRequest {
 		t.Fatalf("bad claim code: %d", w.Code)
+	}
+}
+
+func TestPanelBackupDownload(t *testing.T) {
+	h := newHarness(t)
+	sess := h.setupAdmin()
+	w := h.do("GET", "/api/v1/settings/backup", "", withCookie(sess))
+	if w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3") ||
+		!strings.Contains(w.Header().Get("Content-Disposition"), "minectl-panel-") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("backup: %d %q %v", w.Code, w.Body.String()[:min(20, w.Body.Len())], w.Header())
 	}
 }

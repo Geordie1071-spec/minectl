@@ -74,7 +74,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	if err := update.Apply(ctx, rel, exe); err != nil {
 		return err
 	}
-	fmt.Printf("Updated %s to %s.\n", exe, rel.Version)
+	success("Updated %s to %s", exe, rel.Version)
 	restartService()
 	return nil
 }
@@ -97,5 +97,5 @@ func restartService() {
 		fmt.Printf("Couldn't restart the panel (%v): %s\nRestart it: sudo systemctl restart minectl\n", err, out)
 		return
 	}
-	fmt.Println("Restarted the panel.")
+	success("Restarted the panel")
 }
